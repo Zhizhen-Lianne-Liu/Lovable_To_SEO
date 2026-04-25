@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import type { Site } from "./rebuild.js";
+import type { Site } from "./enhance.js";
 import type { RepoMeta } from "./ingest.js";
 
 const exec = promisify(execFile);

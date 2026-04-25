@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdtemp, readFile, readdir, stat } from "node:fs/promises";
+import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 
 const exec = promisify(execFile);
@@ -17,11 +17,14 @@ export type RepoMeta = {
   inferredUrl: string | null;
   /** What we detected the stack to be. */
   stack: "vite-react" | "next" | "astro" | "unknown";
-  /** Files we'll later read for content extraction. */
-  entryFiles: string[];
+  /** Source files we'll feed to the prerender stage. Repo-relative paths. */
+  sourceFiles: string[];
 };
 
 const LOVABLE_SUBDOMAIN = "lovable.app";
+const SOURCE_EXTS = new Set([".tsx", ".jsx", ".ts", ".js", ".css", ".html"]);
+const SKIP_DIRS = new Set(["node_modules", "dist", "build", ".git", ".next", "out", "seo"]);
+const MAX_FILES = 60;
 
 async function exists(p: string): Promise<boolean> {
   try {
@@ -46,31 +49,40 @@ async function detectStack(repoPath: string): Promise<RepoMeta["stack"]> {
   return "unknown";
 }
 
-async function findEntryFiles(repoPath: string): Promise<string[]> {
-  const candidates = [
-    "index.html",
-    "src/App.tsx",
-    "src/App.jsx",
-    "src/main.tsx",
-    "src/pages/index.tsx",
-    "src/pages/Index.tsx",
-    "src/pages/Home.tsx",
-  ];
-  const found: string[] = [];
-  for (const c of candidates) {
-    if (await exists(join(repoPath, c))) found.push(c);
+async function walkSource(repoPath: string): Promise<string[]> {
+  const out: string[] = [];
+  async function recurse(dir: string) {
+    if (out.length >= MAX_FILES) return;
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (out.length >= MAX_FILES) return;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (SKIP_DIRS.has(e.name) || e.name.startsWith(".")) continue;
+        await recurse(full);
+      } else {
+        const dot = e.name.lastIndexOf(".");
+        const ext = dot === -1 ? "" : e.name.slice(dot);
+        if (SOURCE_EXTS.has(ext)) out.push(relative(repoPath, full));
+      }
+    }
   }
-  return found;
+  // Prioritize index.html and src/ — those are what the prerender stage needs.
+  if (await exists(join(repoPath, "index.html"))) out.push("index.html");
+  await recurse(join(repoPath, "src"));
+  return out;
 }
 
-function inferLovableUrl(remote: string | null, repoPath: string): string | null {
-  // Lovable apps publish to <project-slug>.lovable.app. The slug usually matches
-  // the repo name. Best-effort — user can override with --url.
+function inferLovableUrl(remote: string | null): string | null {
   if (!remote) return null;
   const m = remote.match(/[/:]([^/]+?)(?:\.git)?$/);
   if (!m) return null;
-  const repoName = m[1].toLowerCase();
-  return `https://${repoName}.${LOVABLE_SUBDOMAIN}`;
+  return `https://${m[1].toLowerCase()}.${LOVABLE_SUBDOMAIN}`;
 }
 
 /**
@@ -83,15 +95,13 @@ export async function ingestRepo(repoUrl: string): Promise<RepoMeta> {
   const { stdout: branch } = await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
     cwd: dir,
   });
-  const stack = await detectStack(dir);
-  const entryFiles = await findEntryFiles(dir);
   return {
     path: dir,
     remote: repoUrl,
     defaultBranch: branch.trim(),
-    inferredUrl: inferLovableUrl(repoUrl, dir),
-    stack,
-    entryFiles,
+    inferredUrl: inferLovableUrl(repoUrl),
+    stack: await detectStack(dir),
+    sourceFiles: await walkSource(dir),
   };
 }
 
@@ -102,31 +112,35 @@ export async function ingestLocal(path: string): Promise<RepoMeta> {
   const { stdout: branch } = await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
     cwd: path,
   }).catch(() => ({ stdout: "main" }));
-  const stack = await detectStack(path);
-  const entryFiles = await findEntryFiles(path);
   return {
     path,
     remote: null,
     defaultBranch: branch.trim(),
     inferredUrl: null,
-    stack,
-    entryFiles,
+    stack: await detectStack(path),
+    sourceFiles: await walkSource(path),
   };
 }
 
 /**
- * Read the content of the entry files so the strategist can see the actual
- * source the founder is editing in Lovable. We cap each file to keep prompt
- * size reasonable.
+ * Read source-file contents for prerender. Per-file cap keeps prompt size
+ * bounded; aggregate cap keeps total tokens reasonable.
  */
-export async function readEntryFiles(
+export async function readSourceFiles(
   meta: RepoMeta,
-  perFileLimit = 8000,
+  perFileLimit = 6000,
+  totalLimit = 80000,
 ): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  for (const rel of meta.entryFiles) {
+  let used = 0;
+  for (const rel of meta.sourceFiles) {
+    if (used >= totalLimit) break;
     const content = await readFile(join(meta.path, rel), "utf8");
-    out[rel] = content.length > perFileLimit ? `${content.slice(0, perFileLimit)}\n…[truncated]` : content;
+    const truncated = content.length > perFileLimit
+      ? `${content.slice(0, perFileLimit)}\n…[truncated]`
+      : content;
+    out[rel] = truncated;
+    used += truncated.length;
   }
   return out;
 }

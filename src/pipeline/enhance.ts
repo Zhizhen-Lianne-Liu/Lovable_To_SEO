@@ -1,7 +1,7 @@
 import type { ClaudeClient } from "../claude/client.js";
-import type { ScrapedPage } from "./scrape.js";
+import type { PrerenderedPage } from "./prerender.js";
 import type { RepoMeta } from "./ingest.js";
-import { REWRITER_SYSTEM } from "../prompts/rewriter.js";
+import { ENHANCER_SYSTEM } from "../prompts/enhancer.js";
 
 export type Site = {
   /** Map of repo-relative path → file contents. */
@@ -39,31 +39,21 @@ function buildSitemapXml(canonicalUrl: string): string {
 }
 
 /**
- * Rebuild stage: brief + extracted page → a multi-file static site, ready
- * to drop into the repo under `seo/` (or wherever mountPath says).
- *
- * v0 emits a single index.html (with inline CSS) plus robots.txt and
- * sitemap.xml. Multi-page support comes later.
+ * Enhance the prerendered page with Peec-driven SEO+GEO edits. Layered on
+ * top of the static-HTML output from the prerender stage — we are NOT
+ * redesigning the page, just injecting structure and copy that wins
+ * citations.
  */
-export async function rebuild(
+export async function enhance(
   claude: ClaudeClient,
-  page: ScrapedPage,
+  prerendered: PrerenderedPage,
   brief: string,
-  opts: { repo?: RepoMeta; canonicalUrl?: string; mountPath?: string } = {},
+  opts: { repo?: RepoMeta; canonicalUrl: string; mountPath?: string },
 ): Promise<Site> {
-  const sourceContext = opts.repo
-    ? `# Repo stack: ${opts.repo.stack}\n# Entry files: ${opts.repo.entryFiles.join(", ") || "(none detected)"}`
-    : "";
-
   const html = await claude.complete({
-    system: REWRITER_SYSTEM,
-    cachedContext: [
-      sourceContext,
-      `# Original rendered HTML\n\n${page.rawHtml}`,
-    ]
-      .filter(Boolean)
-      .join("\n\n"),
-    user: `# Rewrite brief\n\n${brief}\n\nNow output the new HTML document. Begin with <!doctype html>.`,
+    system: ENHANCER_SYSTEM,
+    cachedContext: `# Prerendered HTML (input)\n\n${prerendered.html}`,
+    user: `# Peec brief\n\n${brief}\n\nNow output the enhanced HTML. Begin with <!doctype html>.`,
     maxTokens: 8000,
   });
 
@@ -72,15 +62,12 @@ export async function rebuild(
     .replace(/\s*```\s*$/i, "")
     .trim();
 
-  const canonicalUrl = opts.canonicalUrl ?? page.url;
-  const files: Record<string, string> = {
-    "index.html": cleanHtml,
-    "robots.txt": buildRobotsTxt(canonicalUrl),
-    "sitemap.xml": buildSitemapXml(canonicalUrl),
-  };
-
   return {
-    files,
+    files: {
+      "index.html": cleanHtml,
+      "robots.txt": buildRobotsTxt(opts.canonicalUrl),
+      "sitemap.xml": buildSitemapXml(opts.canonicalUrl),
+    },
     mountPath: opts.mountPath ?? DEFAULT_MOUNT,
   };
 }

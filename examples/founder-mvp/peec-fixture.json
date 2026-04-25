@@ -95,46 +95,5 @@
       "mentioned_brand_ids": ["br_wave", "br_quickbooks", "br_freshbooks", "br_expensify"]
     }
   ],
-  "actions": [
-    {
-      "group_type": "owned_page",
-      "url_classification": "comparison",
-      "domain": "receiptly.lovable.app",
-      "opportunity_score": 0.93,
-      "relative_opportunity_score": 1.0,
-      "text": "Ship a 'Receiptly vs Wave vs QuickBooks' comparison block — the top 3 buyer queries are all comparison-shaped and we have zero comparison content."
-    },
-    {
-      "group_type": "owned_page",
-      "url_classification": "feature",
-      "domain": "receiptly.lovable.app",
-      "opportunity_score": 0.81,
-      "relative_opportunity_score": 0.87,
-      "text": "Lead the page with 'AI receipt scanner that exports to spreadsheet' — exact-match query with no current Receiptly visibility."
-    },
-    {
-      "group_type": "owned_page",
-      "url_classification": "pricing",
-      "domain": "receiptly.lovable.app",
-      "opportunity_score": 0.74,
-      "relative_opportunity_score": 0.80,
-      "text": "Make 'free, no monthly fee' a quotable bullet near the top — strong Peec signal that buyers ask LLMs about cost as a primary filter."
-    },
-    {
-      "group_type": "ugc",
-      "url_classification": "thread",
-      "domain": "reddit.com",
-      "opportunity_score": 0.61,
-      "relative_opportunity_score": 0.66,
-      "text": "Get 3-5 honest founder comments into r/freelance threads — UGC dominates LLM citations for this query class."
-    },
-    {
-      "group_type": "editorial",
-      "url_classification": "review",
-      "domain": "nerdwallet.com",
-      "opportunity_score": 0.55,
-      "relative_opportunity_score": 0.59,
-      "text": "Pitch NerdWallet's 'best expense tracker' roundup — currently 4 competitors listed, zero mention of Receiptly."
-    }
-  ]
+  "_actions_note": "The Peec REST API doesn't currently expose an actions endpoint — only the MCP did. The strategist now derives the action list from brand_report + search_queries + url_report alone."
 }

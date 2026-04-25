@@ -1,8 +1,8 @@
 import { PeecClient, type DiagnoseBundle } from "../peec/client.js";
 
 /**
- * Pulls everything we need from Peec in one go. We default to a 30-day window
- * so we get enough signal without ancient noise.
+ * Pull what we need from the Peec REST API in one round-trip set.
+ * 30-day default window — current enough, enough signal.
  */
 export async function diagnose(
   peec: PeecClient,
@@ -16,13 +16,11 @@ export async function diagnose(
     end: end.toISOString().slice(0, 10),
   };
 
-  // Parallelize the four reads — no dependencies between them.
-  const [brand_report, search_queries, url_report, actions] = await Promise.all([
+  const [brand_report, search_queries, url_report] = await Promise.all([
     peec.getBrandReport(projectId, range),
     peec.listSearchQueries(projectId, range),
     peec.getUrlReport(projectId, range),
-    peec.getActions(projectId, range),
   ]);
 
-  return { brand_report, search_queries, url_report, actions };
+  return { brand_report, search_queries, url_report };
 }

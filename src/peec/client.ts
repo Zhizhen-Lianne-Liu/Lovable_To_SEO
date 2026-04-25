@@ -1,10 +1,8 @@
 import { readFile } from "node:fs/promises";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 export type PeecConfig = {
-  mcpUrl: string;
-  oauthToken?: string;
+  apiUrl: string;
+  apiKey?: string;
   fixturePath?: string;
 };
 
@@ -36,28 +34,22 @@ export type UrlReportRow = {
   mentioned_brand_ids: string[];
 };
 
-export type Action = {
-  text?: string;
-  group_type: string;
-  url_classification?: string;
-  domain?: string;
-  opportunity_score: number;
-  relative_opportunity_score: number;
-};
-
 export type DiagnoseBundle = {
   brand_report: BrandReportRow[];
   search_queries: SearchQuery[];
   url_report: UrlReportRow[];
-  actions: Action[];
 };
 
+const DEFAULT_API_URL = "https://api.peec.ai/customer/v1";
+
 /**
- * Wraps the Peec MCP. In fixture mode (PEEC_FIXTURE set) we skip the network
- * entirely so the demo runs offline — useful for hackathon judging.
+ * Direct Peec REST client. Auth is `X-API-Key` per docs.peec.ai.
+ *
+ * Fixture mode (PEEC_FIXTURE) loads a JSON file with the same shape so the
+ * demo runs offline — useful for hackathon judging without provisioning an
+ * Enterprise API key.
  */
 export class PeecClient {
-  private client?: Client;
   private fixture?: DiagnoseBundle;
 
   constructor(private cfg: PeecConfig) {}
@@ -68,33 +60,28 @@ export class PeecClient {
       this.fixture = JSON.parse(raw) as DiagnoseBundle;
       return;
     }
-    if (!this.cfg.oauthToken) {
+    if (!this.cfg.apiKey) {
       throw new Error(
-        "Peec MCP needs PEEC_OAUTH_TOKEN (or run with PEEC_FIXTURE=...)",
+        "Peec needs PEEC_API_KEY (or run with PEEC_FIXTURE=path/to/fixture.json)",
       );
     }
-    const transport = new StreamableHTTPClientTransport(
-      new URL(this.cfg.mcpUrl),
-      {
-        requestInit: {
-          headers: { Authorization: `Bearer ${this.cfg.oauthToken}` },
-        },
-      },
-    );
-    this.client = new Client(
-      { name: "lovabletoseo", version: "0.1.0" },
-      { capabilities: {} },
-    );
-    await this.client.connect(transport);
   }
 
-  private async call<T>(name: string, args: Record<string, unknown>): Promise<T> {
-    if (!this.client) throw new Error("PeecClient not connected");
-    const res = await this.client.callTool({ name, arguments: args });
-    // Peec returns JSON in the first content block (text type).
-    const block = (res.content as Array<{ type: string; text?: string }>)[0];
-    if (!block?.text) throw new Error(`Peec ${name} returned no content`);
-    return JSON.parse(block.text) as T;
+  private async post<T>(path: string, body: Record<string, unknown>): Promise<T> {
+    const url = `${this.cfg.apiUrl.replace(/\/$/, "")}${path}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": this.cfg.apiKey ?? "",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Peec ${path} failed: ${res.status} ${res.statusText} ${text}`);
+    }
+    return (await res.json()) as T;
   }
 
   async getBrandReport(
@@ -102,12 +89,16 @@ export class PeecClient {
     range: { start: string; end: string },
   ): Promise<BrandReportRow[]> {
     if (this.fixture) return this.fixture.brand_report;
-    return this.call("get_brand_report", {
-      project_id: projectId,
-      start_date: range.start,
-      end_date: range.end,
-      limit: 50,
-    });
+    const data = await this.post<{ data: BrandReportRow[] } | BrandReportRow[]>(
+      "/reports/brands",
+      {
+        project_id: projectId,
+        start_date: range.start,
+        end_date: range.end,
+        limit: 50,
+      },
+    );
+    return Array.isArray(data) ? data : data.data;
   }
 
   async listSearchQueries(
@@ -115,12 +106,16 @@ export class PeecClient {
     range: { start: string; end: string },
   ): Promise<SearchQuery[]> {
     if (this.fixture) return this.fixture.search_queries;
-    return this.call("list_search_queries", {
-      project_id: projectId,
-      start_date: range.start,
-      end_date: range.end,
-      limit: 200,
-    });
+    const data = await this.post<{ data: SearchQuery[] } | SearchQuery[]>(
+      "/queries/search",
+      {
+        project_id: projectId,
+        start_date: range.start,
+        end_date: range.end,
+        limit: 200,
+      },
+    );
+    return Array.isArray(data) ? data : data.data;
   }
 
   async getUrlReport(
@@ -128,28 +123,19 @@ export class PeecClient {
     range: { start: string; end: string },
   ): Promise<UrlReportRow[]> {
     if (this.fixture) return this.fixture.url_report;
-    return this.call("get_url_report", {
-      project_id: projectId,
-      start_date: range.start,
-      end_date: range.end,
-      limit: 50,
-    });
+    const data = await this.post<{ data: UrlReportRow[] } | UrlReportRow[]>(
+      "/reports/urls",
+      {
+        project_id: projectId,
+        start_date: range.start,
+        end_date: range.end,
+        limit: 50,
+      },
+    );
+    return Array.isArray(data) ? data : data.data;
   }
+}
 
-  async getActions(
-    projectId: string,
-    range: { start: string; end: string },
-  ): Promise<Action[]> {
-    if (this.fixture) return this.fixture.actions;
-    return this.call("get_actions", {
-      project_id: projectId,
-      start_date: range.start,
-      end_date: range.end,
-      scope: "overview",
-    });
-  }
-
-  async close(): Promise<void> {
-    await this.client?.close();
-  }
+export function defaultPeecApiUrl(): string {
+  return process.env.PEEC_API_URL || DEFAULT_API_URL;
 }
