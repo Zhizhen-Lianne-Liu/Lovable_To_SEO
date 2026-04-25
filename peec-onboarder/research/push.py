@@ -90,6 +90,94 @@ def create_brand(project_id: str, name: str, domains: list[str], color: str | No
     return r.json()
 
 
+# ---------------- Prompts ---------------- #
+
+def list_prompts(project_id: str) -> list[dict]:
+    r = requests.get(
+        f"{PEEC_API}/prompts",
+        headers=_headers(),
+        params={"project_id": project_id, "limit": 1000},
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json().get("data", [])
+
+
+def delete_prompt(prompt_id: str, project_id: str) -> None:
+    r = requests.delete(
+        f"{PEEC_API}/prompts/{prompt_id}",
+        headers=_headers(),
+        params={"project_id": project_id},
+        timeout=30,
+    )
+    if r.status_code not in (200, 204):
+        r.raise_for_status()
+
+
+def create_prompt(project_id: str, text: str, country_code: str = "US",
+                  topic_id: str | None = None, tag_ids: list[str] | None = None) -> dict:
+    body = {"text": text[:200], "country_code": country_code}
+    if topic_id:
+        body["topic_id"] = topic_id
+    if tag_ids:
+        body["tag_ids"] = tag_ids
+    r = requests.post(
+        f"{PEEC_API}/prompts",
+        headers=_headers(),
+        params={"project_id": project_id},
+        json=body,
+        timeout=30,
+    )
+    if r.status_code >= 400:
+        print(f"    [create_prompt] {r.status_code} body={r.text[:200]}")
+    r.raise_for_status()
+    return r.json()
+
+
+def push_prompts(project_id: str, prompts: list[dict], country_code: str = "US",
+                 dry_run: bool = False) -> dict:
+    """Wipe-and-replace prompts in the project.
+
+    prompts: list of dicts with at least a `query` field (Anton's GeneratedPrompt
+             shape). Falls back to `text` if `query` is missing.
+    """
+    print(f"\n[PROMPTS] project={project_id}  pushing {len(prompts)} prompts  dry_run={dry_run}")
+
+    print("  1) Reading existing prompts…")
+    existing = list_prompts(project_id)
+    print(f"     {len(existing)} existing prompt(s)")
+
+    print(f"  2) Deleting {len(existing)} existing prompt(s)…")
+    for p in existing:
+        if not dry_run:
+            try:
+                delete_prompt(p["id"], project_id)
+            except requests.HTTPError as e:
+                print(f"     FAILED to delete {p.get('id')}: {e}")
+
+    print(f"  3) Creating {len(prompts)} new prompt(s)…")
+    created = []
+    for p in prompts:
+        text = (p.get("query") or p.get("text") or "").strip()
+        if not text:
+            continue
+        if dry_run:
+            print(f"     + [{p.get('bucket','?'):14}] {text[:90]}")
+            created.append({"text": text, "_dry_run": True})
+            continue
+        try:
+            res = create_prompt(project_id, text=text, country_code=country_code)
+            created.append(res)
+            print(f"     + [{p.get('bucket','?'):14}] {text[:90]}")
+        except requests.HTTPError as e:
+            print(f"     FAILED to create '{text[:60]}': {e}")
+
+    return {
+        "prompts_deleted": len(existing),
+        "prompts_created": len(created),
+    }
+
+
 # ---------------- Coordinated push ---------------- #
 
 def push(project_id: str, self_profile: dict, final_competitors: list[dict],

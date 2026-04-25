@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { fetchAggregatedKeywords } from '../src-competitors/index.js';
 import { generatePrompts } from '../src-prompts/index.js';
 
@@ -21,6 +23,8 @@ const aggregatorModel = stringFlag(args, '--aggregator-model');
 const category = stringFlag(args, '--category');
 const candidatePool = numericFlag(args, '--candidate-pool') ?? 60;
 const skipCurator = args.includes('--no-curator');
+const outPath = stringFlag(args, '--out'); // write full PromptSet JSON to this file
+const quiet = args.includes('--quiet');     // suppress human-readable preview
 const mustContainRaw = stringFlag(args, '--must-contain');
 // --must-contain is now optional and explicit. The curator agent does the
 // brand-agnostic relevance filtering. Don't auto-derive from --category.
@@ -55,6 +59,15 @@ async function run() {
     candidatePool, topKeywords, promptsPerKeyword, category,
     consensusOnly, skipCurator, skipAggregator,
   });
+
+  // Write structured JSON for downstream consumers (orchestrators, pipelines).
+  if (outPath) {
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, JSON.stringify(set, null, 2));
+    console.error(`[json] wrote PromptSet → ${outPath}`); // stderr so stdout stays human-readable
+  }
+
+  if (quiet) return;
 
   console.log('');
   console.log(`competitors    : ${set.competitors.join(', ')}`);
