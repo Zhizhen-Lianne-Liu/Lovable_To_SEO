@@ -84,14 +84,34 @@ def main():
         category_hint = deep_profile.get("category_for_search")
         if category_hint:
             print(f"      category hint from deep profile: {category_hint!r}")
+        # Tell anton to write the JSON into the run dir so the report module
+        # can pick it up (instead of the default /tmp path).
+        run_dir = Path(results.get("_out_dir") or ".")
+        prompts_out = run_dir / "prompts.json"
         prompt_set = generate_prompts(
             competitor_domains,
             country=args.country,
             own_domain=self_profile["domain"],
             category=category_hint,
+            out_path=prompts_out,
         )
 
     prompts = (prompt_set or {}).get("prompts", []) if prompt_set else []
+
+    # ---- Markdown brief — written before any Peec writes so it's always
+    # available even if push/snapshot fails. Captures the upstream signal
+    # (deep profile, validated competitors, prompt set) that Peec doesn't
+    # surface in its own dashboard. ----
+    run_dir = Path(results.get("_out_dir") or "")
+    if run_dir.is_dir():
+        try:
+            from report import compose_report
+            md = compose_report(run_dir)
+            report_path = run_dir / "report.md"
+            report_path.write_text(md)
+            print(f"\n[report] wrote → {report_path}  ({len(md)} chars)")
+        except Exception as e:
+            print(f"\n[report] ! failed: {e}")
 
     # ---- Step 3: Push brands + prompts to Peec ----
     print(f"\n[3/5] Peec push (project={args.project_id})…")
