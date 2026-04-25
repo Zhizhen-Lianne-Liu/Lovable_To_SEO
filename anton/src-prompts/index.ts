@@ -36,9 +36,11 @@ export async function generatePrompts(
     aggregatorModel: opts.aggregatorModel,
   });
 
-  const candidatePool = opts.candidatePool ?? 50;
-  const topKeywords = opts.topKeywords ?? 12;
-  const promptsPerKeyword = opts.promptsPerKeyword ?? 3;
+  // Defaults sized so the aggregator has headroom to land in the 20-50 final
+  // range. 18 keywords × 4 prompts = 72 raw → aggregator picks 20-50.
+  const candidatePool = opts.candidatePool ?? 60;
+  const topKeywords = opts.topKeywords ?? 18;
+  const promptsPerKeyword = opts.promptsPerKeyword ?? 4;
   const warnings: string[] = [];
 
   // Step 1: deterministic narrowing — score top N for the curator to read.

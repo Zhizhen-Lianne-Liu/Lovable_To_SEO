@@ -11,7 +11,7 @@ Look at the keyword cluster pattern and decide what business category these comp
 
 Output a SHORT category label (2-4 words).
 
-PART 2 — SELECT 10-15 VIABLE KEYWORDS.
+PART 2 — SELECT 15-25 VIABLE KEYWORDS.
 Pick keywords that genuinely represent the COMPETITIVE LANDSCAPE for that inferred category. REJECT:
 
 - BRANDED KEYWORDS that are just one of the competitors' names (e.g. "attio", "hubspot login")
@@ -24,7 +24,7 @@ KEEP variety:
 - Mix of intents (commercial + informational)
 - Mix of use-cases / personas / constraints
 
-QUALITY OVER QUANTITY: 10 great keywords beat 15 mediocre ones. If only 8 keywords survive, output 8.
+QUALITY OVER QUANTITY: 15 great keywords beat 25 mediocre ones. If only 12 survive, output 12. The downstream sub-agents need at least 12 viable seeds to produce a meaningful prompt set; aim for 15-25 if the data supports it.
 
 OUTPUT — only valid JSON, no fences, no prose:
 {
@@ -45,8 +45,8 @@ export async function curateKeywords(
   model: string,
   hint?: string,
 ): Promise<CurationResult> {
-  if (candidates.length <= 12) {
-    return { selected: candidates, inferredCategory: hint ?? 'unknown', rationale: 'no curation needed (≤12 candidates)' };
+  if (candidates.length <= 15) {
+    return { selected: candidates, inferredCategory: hint ?? 'unknown', rationale: 'no curation needed (≤15 candidates)' };
   }
 
   const numbered = candidates.map((k, i) => {
@@ -74,9 +74,9 @@ export async function curateKeywords(
     parsed = JSON.parse(raw);
   } catch {
     return {
-      selected: candidates.slice(0, 12),
+      selected: candidates.slice(0, 18),
       inferredCategory: hint ?? 'unknown',
-      rationale: `curator returned non-JSON, kept top 12 by score (raw: ${text.slice(0, 80)}...)`,
+      rationale: `curator returned non-JSON, kept top 18 by score (raw: ${text.slice(0, 80)}...)`,
     };
   }
 
@@ -89,7 +89,7 @@ export async function curateKeywords(
     .map((i) => candidates[i]);
 
   return {
-    selected: picked.length > 0 ? picked : candidates.slice(0, 12),
+    selected: picked.length > 0 ? picked : candidates.slice(0, 18),
     inferredCategory: parsed.inferred_category ?? hint ?? 'unknown',
     rationale: parsed.rationale ?? '',
   };

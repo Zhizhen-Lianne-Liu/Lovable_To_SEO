@@ -18,9 +18,12 @@ BUCKET RATIO TARGET — enforce as best as the data allows:
 - 27% awareness ("What is X?" / "How does X work?" frames)
 - 13% reserved for brand-eval (often empty in this stage)
 
-Final count: aim for 25 prompts. If quality is high, can output up to 30. If signal is thin, smaller is fine — never pad with weak prompts to hit a quota.
+Final count rules:
+- MINIMUM 20 prompts. Never output fewer than 20 unless the candidate list itself was smaller (in which case output everything that survived dedup).
+- MAXIMUM 50 prompts. Never pad with weak entries to inflate the count.
+- Pick the count by quality and diversity: if you have 50 distinct, on-topic, well-phrased candidates, output 50. If many overlap or read as filler, output closer to 20. The right number is whatever the topic genuinely supports.
 
-Within each bucket, prefer the most diverse SEMANTIC angles. If you have 5 "Best CRM for X" variants, pick the 3 most distinct personas/constraints; drop the rest.
+Within each bucket, prefer the most diverse SEMANTIC angles. If you have 8 "Best CRM for X" variants, pick the 4-6 most distinct personas/constraints; drop the rest.
 
 Output ONLY valid JSON, no prose, no fences:
 {

@@ -9,9 +9,9 @@ You are picking up a hackathon project. Anton built stages 1 and 2 of a pipeline
 | 1. Lovable URL → workdir | `src/` (`importFromUrl`) | Done. Tested against real Lovable repos. |
 | 2a. Competitors → DFS keywords | `src-competitors/` (`fetchAggregatedKeywords`) | Done. Tested on 5 competitors, ~$0.10/run. |
 | 2b. Score + variety selection | `src-prompts/select.ts` (`selectTopKeywords`) | Done. Deterministic, no LLM. |
-| 2c. Curator agent | `src-prompts/curator.ts` (`curateKeywords`) | Done. Sonnet, brand-agnostic. Verified inferring "CRM software" without hint. |
-| 2d. Per-keyword sub-agents | `src-prompts/subagent.ts` (`generateForKeyword`) | Done. Haiku, parallel, 3 prompts per keyword. |
-| 2e. Final aggregator | `src-prompts/aggregator.ts` (`aggregatePrompts`) | Done. Sonnet, semantic dedup + 60/27/13 ratio. |
+| 2c. Curator agent | `src-prompts/curator.ts` (`curateKeywords`) | Done. Opus, brand-agnostic. Verified inferring "CRM software" without hint. |
+| 2d. Per-keyword sub-agents | `src-prompts/subagent.ts` (`generateForKeyword`) | Done. Sonnet, parallel, 4 prompts per keyword. |
+| 2e. Final aggregator | `src-prompts/aggregator.ts` (`aggregatePrompts`) | Done. Opus, semantic dedup + 60/27/13 ratio. Outputs 20-50 prompts. |
 | LLM abstraction | `src-prompts/llm.ts` | Done. Anthropic + Gemini, auto-detect from env. |
 
 ## What is NOT done — likely your job

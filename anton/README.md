@@ -12,13 +12,13 @@ This module's job ends with **a list of Peec AI tracking prompts** generated fro
 [2] fetchAggregatedKeywords(competitors)   stage 2a — DataForSEO
        ↓ AggregatedIntel { consensus, outliers }
 [3] selectTopKeywords(intel)               stage 2b — score + variety, deterministic
-       ↓ 50 candidates
-[4] curateKeywords(candidates)             stage 2c — Sonnet, brand-agnostic relevance gate
-       ↓ 12 viable seeds + inferred category
-[5] generateForKeyword(seed) × N           stage 2d — Haikus, parallel, 3 prompts each
-       ↓ ~36 raw prompts
-[6] aggregatePrompts(raw)                  stage 2e — Sonnet, semantic dedup + bucket ratio
-       ↓ ~25 final prompts
+       ↓ 60 candidates
+[4] curateKeywords(candidates)             stage 2c — Opus, brand-agnostic relevance gate
+       ↓ 15-25 viable seeds + inferred category
+[5] generateForKeyword(seed) × N           stage 2d — Sonnet, parallel, ~4 prompts each
+       ↓ ~70 raw prompts
+[6] aggregatePrompts(raw)                  stage 2e — Opus, semantic dedup + bucket ratio
+       ↓ 20-50 final prompts (data-dependent)
 [hand-off] PromptSet JSON / Markdown
 ```
 
@@ -167,10 +167,12 @@ type GeneratedPrompt = {
 | Step | Cost |
 |---|---|
 | DFS keyword fetch (5 competitors × 200 keywords) | $0.10–0.15 |
-| Curator (1 Sonnet call) | ~$0.01 |
-| Sub-agents (~12 Haiku calls in parallel) | ~$0.02 |
-| Aggregator (1 Sonnet call) | ~$0.02 |
-| **Total per run** | **~$0.15–0.25** |
+| Curator (1 Opus call, judgement-heavy) | ~$0.05 |
+| Sub-agents (~18 Sonnet calls in parallel) | ~$0.20 |
+| Aggregator (1 Opus call, judgement-heavy) | ~$0.06 |
+| **Total per run** | **~$0.40–0.50** |
+
+You can drop to the cheaper config (Haiku sub-agents + Sonnet smart) by passing `--model=claude-haiku-4-5-20251001 --aggregator-model=claude-sonnet-4-6`. Cuts cost to ~$0.15-0.25 per run with measurably lower output quality.
 
 Cached DFS responses are free on subsequent runs (`.cache/dataforseo/agg_*.json`).
 
@@ -214,17 +216,17 @@ Cached DFS responses are free on subsequent runs (`.cache/dataforseo/agg_*.json`
     └── agent-design.md
 ```
 
-## Bucket ratio target
+## Output count and bucket ratio
 
-Aiming for the funnel split observed in real Peec data and Peec's own published guidance:
+**Count: 20-50 prompts per run.** The aggregator picks the right number based on what the data supports. Minimum 20 (unless the candidate pool itself was smaller). Never pad with weak entries to inflate.
+
+**Bucket ratio target** (loose, data wins):
 
 | Bucket | Share | Frame |
 |---|---|---|
 | Consideration | 60% | "Best X for Y", "Top X tools" |
 | Awareness | 27% | "What is X?", "How does X work?" |
 | Brand-eval | 13% | "X vs Y" (not yet implemented — deterministic, no LLM needed) |
-
-The aggregator enforces this loosely; data quality wins over hitting an exact ratio.
 
 ## v0 limitations
 

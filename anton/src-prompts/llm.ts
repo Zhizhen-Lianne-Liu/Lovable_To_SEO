@@ -21,10 +21,13 @@ export interface LLMClient {
   complete(args: { model: string; system: string; userJson: string; maxTokens: number }): Promise<string>;
 }
 
-const DEFAULT_GEMINI_FAST = 'gemini-2.5-flash';
+// Model assignments by role:
+//   subagent  = per-keyword prompt generation (parallel, lots of calls)
+//   smart     = curator + aggregator (1 call each, judgement-heavy)
+const DEFAULT_GEMINI_SUBAGENT = 'gemini-2.5-flash';
 const DEFAULT_GEMINI_SMART = 'gemini-2.5-pro';
-const DEFAULT_CLAUDE_FAST = 'claude-haiku-4-5-20251001';
-const DEFAULT_CLAUDE_SMART = 'claude-sonnet-4-6';
+const DEFAULT_CLAUDE_SUBAGENT = 'claude-sonnet-4-6';
+const DEFAULT_CLAUDE_SMART = 'claude-opus-4-7';
 
 export function resolveLLM(opts: LLMOpts = {}): ResolvedLLM {
   const provider = opts.provider ?? autoProvider();
@@ -36,7 +39,7 @@ export function resolveLLM(opts: LLMOpts = {}): ResolvedLLM {
     return {
       provider,
       client: new GeminiAdapter(process.env.GEMINI_API_KEY),
-      subagentModel: opts.subagentModel ?? DEFAULT_GEMINI_FAST,
+      subagentModel: opts.subagentModel ?? DEFAULT_GEMINI_SUBAGENT,
       aggregatorModel: opts.aggregatorModel ?? DEFAULT_GEMINI_SMART,
     };
   }
@@ -47,7 +50,7 @@ export function resolveLLM(opts: LLMOpts = {}): ResolvedLLM {
   return {
     provider,
     client: new AnthropicAdapter(process.env.ANTHROPIC_API_KEY),
-    subagentModel: opts.subagentModel ?? DEFAULT_CLAUDE_FAST,
+    subagentModel: opts.subagentModel ?? DEFAULT_CLAUDE_SUBAGENT,
     aggregatorModel: opts.aggregatorModel ?? DEFAULT_CLAUDE_SMART,
   };
 }
