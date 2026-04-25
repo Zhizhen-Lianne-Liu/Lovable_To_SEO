@@ -5,8 +5,17 @@ dist/
 out/
 *.log
 .DS_Store
+
+# Python (peec-onboarder + lovable_to_seo)
 .venv/
 __pycache__/
-*.egg-info/
 *.pyc
+*.egg-info/
 /src/lovable_to_seo.egg-info/
+peec-onboarder/data/
+
+# Secrets — never commit, anywhere in the tree
+**/.env
+**/.env.local
+.peec_oauth.json
+**/.peec_oauth.json
