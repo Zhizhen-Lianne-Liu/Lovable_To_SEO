@@ -56,9 +56,13 @@ export function resolveLLM(opts: LLMOpts = {}): ResolvedLLM {
 }
 
 function autoProvider(): Provider {
-  if (process.env.GEMINI_API_KEY) return 'gemini';
+  // Prefer Anthropic when both keys are present. Gemini free-tier hits 429
+  // on parallel sub-agent calls and silently produces 0 prompts; users hit
+  // this footgun on every default run. Opt into Gemini explicitly via
+  // --provider=gemini when on a paid Gemini plan.
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
-  throw promptError('NO_API_KEY', 'No LLM provider key found. Set GEMINI_API_KEY or ANTHROPIC_API_KEY in .env.');
+  if (process.env.GEMINI_API_KEY) return 'gemini';
+  throw promptError('NO_API_KEY', 'No LLM provider key found. Set ANTHROPIC_API_KEY or GEMINI_API_KEY in .env.');
 }
 
 class AnthropicAdapter implements LLMClient {

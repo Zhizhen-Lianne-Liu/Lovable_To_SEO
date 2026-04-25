@@ -11,7 +11,8 @@
     "build": "tsc",
     "import": "tsx scripts/import.ts",
     "keywords": "tsx scripts/keywords.ts",
-    "prompts": "tsx scripts/prompts.ts"
+    "prompts": "tsx scripts/prompts.ts",
+    "pipeline": "tsx scripts/pipeline.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

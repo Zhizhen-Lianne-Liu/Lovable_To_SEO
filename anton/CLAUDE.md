@@ -16,6 +16,8 @@ You are picking up a hackathon project. Anton built stages 1 and 2 of a pipeline
 
 ## What is NOT done — likely your job
 
+See `BACKLOG.md` at the repo root for the full list with implementation sketches and cost estimates. Highlights below.
+
 In rough priority order:
 
 1. **Brand-eval bucket** (the missing 13%). Deterministic, no LLM needed. For each top competitor, append one prompt of the form `<our_brand> vs <competitor>` to the PromptSet. Needs a `brand` input (the user's brand name + domain). Hook into `generatePrompts` with a new opt `ourBrand?: string`. ~30 lines.

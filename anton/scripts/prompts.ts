@@ -1,12 +1,4 @@
-// Load env from anton/.env if present, otherwise the repo-root .env (single
-// source of truth across the orchestrator, anton, and peec-onboarder).
-import dotenv from 'dotenv';
-import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-for (const candidate of ['.env', '../.env']) {
-  const abs = resolve(process.cwd(), candidate);
-  if (existsSync(abs)) { dotenv.config({ path: abs }); break; }
-}
+import 'dotenv/config';
 import { fetchAggregatedKeywords } from '../src-competitors/index.js';
 import { generatePrompts } from '../src-prompts/index.js';
 
@@ -29,8 +21,6 @@ const aggregatorModel = stringFlag(args, '--aggregator-model');
 const category = stringFlag(args, '--category');
 const candidatePool = numericFlag(args, '--candidate-pool') ?? 60;
 const skipCurator = args.includes('--no-curator');
-const outPath = stringFlag(args, '--out'); // write full PromptSet JSON to this file
-const quiet = args.includes('--quiet');     // suppress human-readable preview
 const mustContainRaw = stringFlag(args, '--must-contain');
 // --must-contain is now optional and explicit. The curator agent does the
 // brand-agnostic relevance filtering. Don't auto-derive from --category.
@@ -65,15 +55,6 @@ async function run() {
     candidatePool, topKeywords, promptsPerKeyword, category,
     consensusOnly, skipCurator, skipAggregator,
   });
-
-  // Write structured JSON for downstream consumers (orchestrators, pipelines).
-  if (outPath) {
-    mkdirSync(dirname(outPath), { recursive: true });
-    writeFileSync(outPath, JSON.stringify(set, null, 2));
-    console.error(`[json] wrote PromptSet → ${outPath}`); // stderr so stdout stays human-readable
-  }
-
-  if (quiet) return;
 
   console.log('');
   console.log(`competitors    : ${set.competitors.join(', ')}`);
