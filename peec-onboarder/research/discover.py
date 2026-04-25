@@ -32,14 +32,27 @@ API = "https://api.tavily.com"
 
 def load_env():
     """Load env vars from the repo-root .env (single source of truth).
-    Falls back to peec-onboarder/.env if root doesn't exist (legacy)."""
+    Falls back to peec-onboarder/.env if root doesn't exist (legacy).
+
+    .env wins over the shell environment for keys it defines — so an
+    accidentally-empty ANTHROPIC_API_KEY in the shell can't shadow the
+    real value in the file. Vars NOT in .env are left untouched.
+    """
     for candidate in (REPO_ROOT / ".env", ROOT / ".env"):
         if not candidate.exists():
             continue
         for line in candidate.read_text().splitlines():
             if "=" in line and not line.strip().startswith("#"):
                 k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip())
+                k, v = k.strip(), v.strip()
+                # Strip surrounding quotes if present, and skip empty values
+                # (so a placeholder line in .env.example can't blank a real env var)
+                if v.startswith('"') and v.endswith('"'):
+                    v = v[1:-1]
+                if v.startswith("'") and v.endswith("'"):
+                    v = v[1:-1]
+                if v:
+                    os.environ[k] = v
         return
     print(f"[load_env] WARN: no .env found at {REPO_ROOT}/.env or {ROOT}/.env")
 
