@@ -1,0 +1,32 @@
+{
+  "name": "lovabletoseo",
+  "version": "0.1.0",
+  "description": "The AI marketer every early-stage founder needs. Take a Lovable page, ship it SEO + GEO optimized.",
+  "type": "module",
+  "bin": {
+    "ltseo": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "cheerio": "^1.0.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "undici": "^6.20.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
