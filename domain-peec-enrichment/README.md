@@ -8,18 +8,22 @@ This is the unified end-to-end pipeline. Everything you need to run the flow is 
 
 ```
 domain (e.g. forgent.ai)
-  ↓ Tavily 3-approach competitor discovery       py/research/discover.py
-  ↓ Domain context check (Tavily extract+search) ts/src-context/
-  ↓ Gatekeeper filter (drops false positives)    ts/src-gatekeeper/
-  ↓ DataForSEO keyword aggregation               ts/src-competitors/
-  ↓ Curator → parallel sub-agents → aggregator   ts/src-prompts/
+  ↓ [0a] Cheap profile (Tavily extract)              py/research/discover.py
+  ↓ [0b] Deep profile (multi-source + Anthropic)     py/research/profile.py
+  ↓ Tavily 3-approach competitor discovery           py/research/discover.py
+        ↳ all queries grounded with the deep profile (category, audience, scale)
+  ↓ Anthropic relevance gate (drops false positives) py/research/discover.py
+  ↓ DataForSEO keyword aggregation                   ts/src-competitors/
+  ↓ Curator → parallel sub-agents → aggregator       ts/src-prompts/
+        ↳ category passed in as ground-truth, not inferred
 prompt set (20-50 Peec-shaped prompts)
-  ↓ Peec push (wipe + create brands + prompts)   py/research/push.py
-  ↓ Wait + snapshot (chats, brand reports)       py/research/snapshot.py
-final snapshot.json
+  ↓ Markdown brief written to the run dir            py/research/report.py
+  ↓ Peec push (wipe + create brands + prompts)       py/research/push.py
+  ↓ Wait + snapshot (chats, brand reports)           py/research/snapshot.py
+final snapshot.json + report.md
 ```
 
-The TypeScript side handles the prompt-generation pipeline. The Python side handles competitor discovery, Peec REST orchestration, and snapshot composition. They talk via a JSON file the orchestrator writes between stages.
+The TypeScript side handles the prompt-generation pipeline. The Python side handles deep profiling, competitor discovery + validation, Peec REST orchestration, and snapshot composition. They talk via a JSON file the orchestrator writes between stages.
 
 ## Setup (one-time)
 
@@ -49,14 +53,31 @@ The Peec project must already exist in the Peec dashboard — Peec doesn't expos
 
 That's the whole thing. It will:
 
-1. Discover ~10 competitors via Tavily (3 parallel approaches with consensus voting)
-2. Build a domain context profile via Tavily extract (with search fallback)
-3. Run the gatekeeper to reject false-positive competitors
+1. Build a deep brand profile (multi-page Tavily extract + external lookup + Anthropic synthesis) — the upstream signal that grounds everything else
+2. Discover ~10 competitors via Tavily (3 parallel approaches with consensus voting), all queries grounded with the deep profile
+3. Run an Anthropic relevance gate that validates each candidate against the deep profile (drops parent companies, customers, wrong-tier brands, off-category sites)
 4. Fetch keywords for the surviving competitors via DataForSEO
-5. Generate 20-50 Peec-shaped prompts via curator + parallel sub-agents + aggregator
-6. Push the brands and prompts to your Peec project
-7. Wait 90 seconds for Peec to start running prompts
-8. Snapshot the visibility data and write `snapshot.json`
+5. Generate 20-50 Peec-shaped prompts via curator + parallel sub-agents + aggregator (with the deep profile's category passed as ground truth)
+6. Write a markdown brief (`report.md`) into the run dir capturing brand profile + validated competitors + prompt set
+7. Push the brands and prompts to your Peec project
+8. Wait 90 seconds for Peec to start running prompts
+9. Snapshot the visibility data and write `snapshot.json`
+
+## What each run produces
+
+Inside `py/data/<domain-slug>/<timestamp>/`:
+
+```
+deep_profile.json      structured brand profile (15 fields)
+results.json           full discovery + validation output, all 3 approaches
+prompts.json           generated prompt set with bucket tags + source keywords
+report.md              human-readable brief: profile + competitors + prompts
+self.json              cheap profile (legacy, kept for back-compat)
+```
+
+Plus the snapshot at `py/data/<project_id>/snapshot_<unix_ts>.json`.
+
+`report.md` is the artifact to hand to a content writer, SEO consultant, or another LLM that needs to generate website copy from the research. It captures everything we know about the brand *before* Peec submission — Peec already surfaces visibility / sentiment / citation data in its own dashboard, so we don't duplicate it here.
 
 ## Useful flags (passed through to the orchestrator)
 
@@ -87,24 +108,25 @@ domain-peec-enrichment/
 │   ├── tsconfig.json
 │   ├── src/                   stage 1 — Lovable URL → workdir
 │   ├── src-competitors/       DataForSEO keyword aggregation
-│   ├── src-context/           domain context (Tavily extract + search fallback)
-│   ├── src-gatekeeper/        cross-checks Tavily candidates against context
+│   ├── src-context/           lightweight domain context (legacy; Python's profile.py is the canonical one)
 │   ├── src-prompts/           curator → sub-agents → aggregator → 20-50 prompts
 │   ├── scripts/               CLI: import, keywords, prompts, pipeline
 │   ├── peec-ai-research/      design docs (read for the why)
 │   └── README.md              TypeScript-side details
 │
-└── py/                        ← Python orchestrator (Tavily + Peec REST + snapshot)
+└── py/                        ← Python orchestrator (deep profile + Tavily + Peec)
     ├── requirements.txt
     ├── README.md              Python-side details
     └── research/
-        ├── discover.py        Tavily 3-approach competitor discovery
+        ├── profile.py         Deep brand profile (3 sources + Anthropic synthesis)
+        ├── discover.py        Tavily 3-approach discovery + validation gate
         ├── normalize.py       Canonical-name dedupe + relevance backfill
         ├── anton_runner.py    Subprocess wrapper around ../ts/scripts/prompts.ts
         ├── push.py            Peec REST: wipe-and-replace brands + prompts
         ├── snapshot.py        Pull chats + reports + actions, compose summary
         ├── readback.py        Peec REST helpers
         ├── mcp_client.py      Peec MCP server (OAuth) for actions data
+        ├── report.py          Compose the per-run markdown brief
         └── orchestrate.py     End-to-end CLI — what run.sh calls
 ```
 
