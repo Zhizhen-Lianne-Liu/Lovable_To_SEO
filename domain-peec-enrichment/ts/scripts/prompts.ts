@@ -1,4 +1,20 @@
-import 'dotenv/config';
+// Multi-path .env loader: try ts-local first, then the parent folder
+// (domain-peec-enrichment/.env — the canonical single source of truth shared
+// with py/). This makes the script work whether you run it from ts/ or via
+// the Python orchestrator's subprocess (cwd=ts/).
+import dotenv from 'dotenv';
+import { existsSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
+for (const candidate of ['.env', '../.env']) {
+  const abs = resolvePath(process.cwd(), candidate);
+  if (existsSync(abs)) {
+    dotenv.config({ path: abs });
+    break;
+  }
+}
+
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { fetchAggregatedKeywords } from '../src-competitors/index.js';
 import { generatePrompts } from '../src-prompts/index.js';
 
@@ -21,6 +37,8 @@ const aggregatorModel = stringFlag(args, '--aggregator-model');
 const category = stringFlag(args, '--category');
 const candidatePool = numericFlag(args, '--candidate-pool') ?? 60;
 const skipCurator = args.includes('--no-curator');
+const outPath = stringFlag(args, '--out');     // write the full PromptSet JSON to this file
+const quiet = args.includes('--quiet');         // suppress the human-readable preview to stdout
 const mustContainRaw = stringFlag(args, '--must-contain');
 // --must-contain is now optional and explicit. The curator agent does the
 // brand-agnostic relevance filtering. Don't auto-derive from --category.
@@ -55,6 +73,15 @@ async function run() {
     candidatePool, topKeywords, promptsPerKeyword, category,
     consensusOnly, skipCurator, skipAggregator,
   });
+
+  // Write the full PromptSet JSON for downstream consumers (orchestrators).
+  if (outPath) {
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, JSON.stringify(set, null, 2));
+    console.error(`[json] wrote PromptSet → ${outPath}`); // stderr keeps stdout human-readable
+  }
+
+  if (quiet) return;
 
   console.log('');
   console.log(`competitors    : ${set.competitors.join(', ')}`);
