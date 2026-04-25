@@ -77,12 +77,12 @@ def analyze(bundle: DiagnoseBundle, own_brand_id: str, max_items: int = 5) -> li
             evidence=f"avg position={own.position:.1f} (threshold 3.5)",
         ))
 
-    # MEDIUM: always emit robots.txt and sitemap.xml
+    # MEDIUM: always emit robots.txt, sitemap.xml, and llms.txt
     items.append(ActionItem(
         edit_type=EditType.EMIT_ROBOTS_TXT,
         priority=Priority.MEDIUM,
         target_file="seo/robots.txt",
-        rationale="robots.txt allows all crawlers and points to sitemap.",
+        rationale="robots.txt explicitly allows all AI crawlers (GPTBot, PerplexityBot, ClaudeBot, Google-Extended, Bingbot).",
         evidence="always",
     ))
     items.append(ActionItem(
@@ -90,6 +90,20 @@ def analyze(bundle: DiagnoseBundle, own_brand_id: str, max_items: int = 5) -> li
         priority=Priority.MEDIUM,
         target_file="seo/sitemap.xml",
         rationale="sitemap.xml helps crawlers discover and date the page.",
+        evidence="always",
+    ))
+    items.append(ActionItem(
+        edit_type=EditType.EMIT_LLMS_TXT,
+        priority=Priority.MEDIUM,
+        target_file="seo/llms.txt",
+        rationale="llms.txt gives AI agents a machine-readable product overview for programmatic evaluation.",
+        evidence="always",
+    ))
+    items.append(ActionItem(
+        edit_type=EditType.EMIT_PRICING_MD,
+        priority=Priority.MEDIUM,
+        target_file="seo/pricing.md",
+        rationale="AI agents evaluating tools programmatically can't parse JS-rendered pricing; a plain markdown file is trivially readable.",
         evidence="always",
     ))
 

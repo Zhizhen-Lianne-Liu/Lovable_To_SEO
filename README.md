@@ -562,13 +562,102 @@ cp .env.example .env
 # Fill in: PEEC_API_KEY (skc-...), TAVILY_API_KEY, ANTHROPIC_API_KEY,
 #          DATAFORSEO_LOGIN, DATAFORSEO_PASSWORD
 
-cd peec-onboarder
+# Demo run with the bundled fixture (no Peec auth needed)
+PEEC_FIXTURE=examples/founder-mvp/snapshot_attio_2026-04-25.json \
+  npm run dev -- run \
+    --repo https://github.com/your-team/your-lovable-app \
+    --project-id demo
+
+# Real run — clone, prerender, enhance, push branch, open PR
+npm run dev -- run \
+  --repo https://github.com/your-team/your-lovable-app \
+  --project-id <peec_project_id> \
+  --open-pr
+```
+
+Outputs land in `out/<run-id>/`:
+
+- `01-repo.json` — cloned-repo metadata + source-file list
+- `02-prerendered.html` — the SPA-to-static conversion (already a wins-by-itself artifact)
+- `03-diagnose.json` — Peec signal
+- `04-brief.md` — strategist brief
+- `05-diff.patch` — what enhancement changed vs prerendered
+- `site/` — the final static site (`index.html` + `robots.txt` + `sitemap.xml`)
+- `report.md` — exec summary you can paste into Slack
+
+When `--repo` is given the final `site/` is committed to a fresh branch under `seo/`. With `--open-pr` we push and call `gh pr create`.
+
+---
+
+## Why we win the track
+
+Most "AI SEO tools" guess. We don't.
+
+| Signal | Source | What it tells us |
+|---|---|---|
+| What buyers ask LLMs | Peec `/queries/search` | Real query targets — not Ahrefs guesses |
+| Which URLs LLMs cite | Peec `/reports/urls` | The shape of content that wins citations |
+| Where competitors crush us | Peec `/reports/brands` | Share-of-voice gaps to attack first |
+| The page itself | Cloned repo | The React source we can actually edit |
+
+Claude fuses all four into an enhancement that targets the *actual* gap. Then we re-measure on Peec next week and show the lift.
+
+---
+
+## What "GEO" means here
+
+GEO = Generative Engine Optimization. Becoming the source LLMs *quote* when a buyer asks "what's the best receipt scanner for freelancers?". The enhancer applies a concrete playbook — see [`docs/GEO_PRINCIPLES.md`](docs/GEO_PRINCIPLES.md):
+
+- **Direct, extractable answers** at the top of every section
+- **Comparison tables** for every "X vs Y" buyer query
+- **Cited stats** with linked sources
+- **Schema.org JSON-LD** (Organization, SoftwareApplication, FAQPage)
+- **Entity consistency** — same brand surface form everywhere
+- **Q&A blocks** sized for LLM quote windows (40–80 words)
+
+Classic SEO is the floor (titles, meta, headings, alt text) — not the ceiling.
+
+---
+
+## HTTP API (Python FastAPI service)
+
+The CLI above is the local tool. The Python service at `src/lovable_to_seo/` powers the web app — same pipeline, exposed over HTTP.
+
+```
+POST /run
+   → [Ingest]   clone to /tmp/ltseo-{run_id}/
+   → asyncio.gather(
+         [Prerender] Agent SDK loop                    # reads local disk
+                     → /tmp/ltseo-{run_id}/seo/        # local scratch only
+                       index.html (markup + inlined CSS + assets/)
+         [Diagnose]  httpx → Peec REST (3 in parallel) # hits network
+     )                                                  # run concurrently
+   → [Analyze]  pure Python decision table → ActionItem list
+   → [Enhance]  Agent SDK loop
+                → edits /tmp/ltseo-{run_id}/seo/index.html in place
+                → writes seo/robots.txt, seo/sitemap.xml
+   → [Ship]     read /tmp/ltseo-{run_id}/seo/* off disk
+                strip "seo/" prefix → publish at repo ROOT on main:
+                  index.html, robots.txt, sitemap.xml, assets/
+                GitHub Git Data API → blobs → fresh tree (no base_tree)
+                → fast-forward main
+   → RunResult { commit_url, commit_sha, run_id }
+```
+
+`seo/` is local scratch only — it never appears on the remote. Ship replaces `main` entirely (one-way migration; original React source stays in the parent commit and is recoverable via `git revert HEAD`).
+
+```bash
+# Spin up
+cp .env.example .env   # add ANTHROPIC_API_KEY + GITHUB_TOKEN
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cd ../anton && npm install      # one-time, ~30s
 
-# One-time MCP auth (only if you want actions data — opens browser)
-python3 research/mcp_client.py <project_id>
+# Dry run (no GitHub push, uses fixture Peec data)
+curl -X POST localhost:8000/run/sync \
+  -H "Content-Type: application/json" \
+  -d '{"github_repo_url":"https://github.com/owner/repo",
+       "peec_project_id":"demo","own_brand_id":"br_attio","push":false}'
 
 # Full end-to-end run
 python3 research/orchestrate.py \

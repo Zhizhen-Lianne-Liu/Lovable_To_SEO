@@ -37,10 +37,10 @@ async def enhance(
     user_prompt = (
         "The file seo/index.html has been prerendered (static HTML, Tailwind CSS inlined).\n\n"
         f"Apply these prioritized AEO action items:\n\n{items_md}\n\n"
-        "Edit seo/index.html in place using the Edit tool. "
-        "Write seo/robots.txt and seo/sitemap.xml using the Write tool. "
-        "Work through items in priority order (CRITICAL first). "
-        "When done, output one summary line."
+        "Work through items in CRITICAL → HIGH → MEDIUM → LOW order.\n"
+        "Use the Edit tool to modify seo/index.html in place.\n"
+        "Use the Write tool to create seo/robots.txt, seo/sitemap.xml, seo/llms.txt, and seo/pricing.md.\n"
+        "When done, output one summary line: 'Enhanced: <comma-separated edit_types>'."
     )
 
     await run_agent(

@@ -1,0 +1,127 @@
+{
+  "_note": "PeecAI snapshot for Attio (attio.com) — modern CRM for B2B teams. Captured 2026-04-25. Attio has growing AI visibility but is significantly outpaced by Salesforce and HubSpot across most buyer queries.",
+  "brand_report": [
+    {
+      "brand_id": "br_attio",
+      "brand_name": "Attio",
+      "visibility": 0.11,
+      "mention_count": 89,
+      "share_of_voice": 0.06,
+      "sentiment": 0.71,
+      "position": 4.2
+    },
+    {
+      "brand_id": "br_salesforce",
+      "brand_name": "Salesforce",
+      "visibility": 0.82,
+      "mention_count": 1241,
+      "share_of_voice": 0.38,
+      "sentiment": 0.44,
+      "position": 1.3
+    },
+    {
+      "brand_id": "br_hubspot",
+      "brand_name": "HubSpot",
+      "visibility": 0.74,
+      "mention_count": 987,
+      "share_of_voice": 0.29,
+      "sentiment": 0.61,
+      "position": 1.8
+    },
+    {
+      "brand_id": "br_pipedrive",
+      "brand_name": "Pipedrive",
+      "visibility": 0.48,
+      "mention_count": 412,
+      "share_of_voice": 0.14,
+      "sentiment": 0.58,
+      "position": 2.6
+    },
+    {
+      "brand_id": "br_notion",
+      "brand_name": "Notion",
+      "visibility": 0.39,
+      "mention_count": 318,
+      "share_of_voice": 0.09,
+      "sentiment": 0.67,
+      "position": 3.1
+    },
+    {
+      "brand_id": "br_affinity",
+      "brand_name": "Affinity",
+      "visibility": 0.22,
+      "mention_count": 156,
+      "share_of_voice": 0.04,
+      "sentiment": 0.69,
+      "position": 3.8
+    }
+  ],
+  "search_queries": [
+    { "prompt_id": "p1", "chat_id": "c1", "model_id": "m_gpt", "date": "2026-04-15", "query_text": "best CRM for B2B startups" },
+    { "prompt_id": "p2", "chat_id": "c2", "model_id": "m_perplexity", "date": "2026-04-16", "query_text": "CRM with relationship intelligence for sales teams" },
+    { "prompt_id": "p3", "chat_id": "c3", "model_id": "m_gpt", "date": "2026-04-17", "query_text": "Salesforce alternative for early-stage startups" },
+    { "prompt_id": "p4", "chat_id": "c4", "model_id": "m_gemini", "date": "2026-04-18", "query_text": "CRM that syncs automatically with Gmail and Outlook" },
+    { "prompt_id": "p5", "chat_id": "c5", "model_id": "m_gpt", "date": "2026-04-19", "query_text": "HubSpot vs Salesforce for Series A company" },
+    { "prompt_id": "p6", "chat_id": "c6", "model_id": "m_claude", "date": "2026-04-20", "query_text": "CRM with no data entry built for investors and VCs" },
+    { "prompt_id": "p7", "chat_id": "c7", "model_id": "m_perplexity", "date": "2026-04-21", "query_text": "modern flexible CRM with API-first architecture" },
+    { "prompt_id": "p8", "chat_id": "c8", "model_id": "m_gpt", "date": "2026-04-22", "query_text": "best CRM for go-to-market teams tracking pipeline" },
+    { "prompt_id": "p9", "chat_id": "c9", "model_id": "m_gemini", "date": "2026-04-23", "query_text": "CRM software with custom objects and no-code setup" },
+    { "prompt_id": "p10", "chat_id": "c10", "model_id": "m_gpt", "date": "2026-04-24", "query_text": "affordable CRM alternative to Salesforce for SMB" }
+  ],
+  "url_report": [
+    {
+      "url": "https://www.salesforce.com/crm/",
+      "classification": "competitor",
+      "title": "CRM Software — Salesforce",
+      "citation_count": 412,
+      "retrievals": 501,
+      "citation_rate": 0.82,
+      "mentioned_brand_ids": ["br_salesforce"]
+    },
+    {
+      "url": "https://www.hubspot.com/products/crm",
+      "classification": "competitor",
+      "title": "Free CRM Software — HubSpot",
+      "citation_count": 331,
+      "retrievals": 447,
+      "citation_rate": 0.74,
+      "mentioned_brand_ids": ["br_hubspot"]
+    },
+    {
+      "url": "https://attio.com",
+      "classification": "own",
+      "title": "Attio — The CRM Built for the Future of Work",
+      "citation_count": 18,
+      "retrievals": 97,
+      "citation_rate": 0.19,
+      "mentioned_brand_ids": ["br_attio"]
+    },
+    {
+      "url": "https://www.g2.com/categories/crm",
+      "classification": "editorial",
+      "title": "Best CRM Software — G2",
+      "citation_count": 287,
+      "retrievals": 364,
+      "citation_rate": 0.79,
+      "mentioned_brand_ids": ["br_salesforce", "br_hubspot", "br_pipedrive", "br_attio"]
+    },
+    {
+      "url": "https://www.capterra.com/crm-software/",
+      "classification": "editorial",
+      "title": "Best CRM Software 2026 — Capterra",
+      "citation_count": 198,
+      "retrievals": 261,
+      "citation_rate": 0.76,
+      "mentioned_brand_ids": ["br_salesforce", "br_hubspot", "br_pipedrive"]
+    },
+    {
+      "url": "https://www.reddit.com/r/sales/comments/crm_recommendations",
+      "classification": "ugc",
+      "title": "What CRM are you using in 2026? — r/sales",
+      "citation_count": 94,
+      "retrievals": 178,
+      "citation_rate": 0.53,
+      "mentioned_brand_ids": ["br_hubspot", "br_pipedrive", "br_attio", "br_notion"]
+    }
+  ]
+}

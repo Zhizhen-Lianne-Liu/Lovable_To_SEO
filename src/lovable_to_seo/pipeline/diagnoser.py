@@ -10,7 +10,7 @@ async def diagnose(
     project_id: str,
     own_brand_id: str,
     lookback_days: int = 30,
-    fixture_path: str = "examples/founder-mvp/peec-fixture.json",
+    fixture_path: str = "examples/founder-mvp/snapshot_attio_2026-04-25.json",
 ) -> DiagnoseBundle:
     # TODO: implement real PeecAI API calls via clients/peecai.py
     # end = date.today()
