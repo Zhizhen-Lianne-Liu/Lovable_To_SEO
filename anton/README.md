@@ -1,78 +1,248 @@
-# Lovable Import Module
+# Lovable → SEO/GEO — Keyword & Prompt Pipeline
 
-First stage of a pipeline that takes a Lovable.dev project, rebuilds it for SEO/GEO, and redeploys it. This module accepts a Lovable project URL, GitHub repo URL, or `owner/repo` slug, fetches the source tarball, extracts it to a workdir, and detects whether the project is built with Lovable. Other modules (audit, rebuild, deploy, tracking) consume the resulting `ImportResult` over its TypeScript contract or via the HTTP API.
+This module is stages 1 and 2 of a larger pipeline that takes a Lovable.dev project, audits it for AI-search visibility, and rebuilds it for SEO/GEO. The other stages (audit, rebuild, deploy, tracking) are owned by other team members.
 
-## Contract
+This module's job ends with **a list of Peec AI tracking prompts** generated from competitor SEO data. Peec employees paste those prompts into Peec; downstream stages consume the visibility results.
 
-```ts
-export type ImportResult = {
-  jobId: string;
-  workdir: string;            // absolute path to extracted code
-  repoMeta: {
-    owner: string;
-    repo: string;
-    sha?: string;
-    sourceUrl: string;        // what the user originally pasted
-  };
-  isLovable: boolean;
-  detectionReasons: string[]; // e.g. ["package.json has vite", "src/components/ui/ exists"]
-  cached: boolean;            // true if tarball came from local cache
-};
+## Pipeline
 
-export type ImportError = {
-  error: string;              // human-readable
-  code: 'INVALID_URL' | 'NOT_FOUND' | 'NOT_LOVABLE' | 'PRIVATE_REPO' | 'RATE_LIMITED' | 'NETWORK' | 'UNKNOWN';
-};
+```
+[1] importFromUrl(url)                     stage 1 — done
+       ↓ workdir
+[2] fetchAggregatedKeywords(competitors)   stage 2a — DataForSEO
+       ↓ AggregatedIntel { consensus, outliers }
+[3] selectTopKeywords(intel)               stage 2b — score + variety, deterministic
+       ↓ 50 candidates
+[4] curateKeywords(candidates)             stage 2c — Sonnet, brand-agnostic relevance gate
+       ↓ 12 viable seeds + inferred category
+[5] generateForKeyword(seed) × N           stage 2d — Haikus, parallel, 3 prompts each
+       ↓ ~36 raw prompts
+[6] aggregatePrompts(raw)                  stage 2e — Sonnet, semantic dedup + bucket ratio
+       ↓ ~25 final prompts
+[hand-off] PromptSet JSON / Markdown
 ```
 
-On failure, `importFromUrl` throws an `Error` whose `.cause` is an `ImportError`-shaped object. `NOT_LOVABLE` is a soft signal — the function still resolves with `isLovable: false`, it never throws for it.
+The curator step (stage 2c) is what makes the system **brand-agnostic**. It infers the category from the keyword pattern, so the same code works for CRM brands, project-management tools, natural-skincare brands, etc. without code changes.
 
 ## Setup
 
 ```bash
 npm install
 cp .env.example .env
-# Add a GitHub personal access token to .env. No scopes are required for
-# public repos. It just bumps the rate limit from 60/hr to 5000/hr.
-# Create one here: https://github.com/settings/tokens
+# Fill in:
+#   GITHUB_TOKEN       — public repo access (60 req/hr without, 5000 with)
+#   DATAFORSEO_LOGIN   — DFS Basic auth
+#   DATAFORSEO_PASSWORD
+#   ANTHROPIC_API_KEY  — sub-agents + curator + aggregator
+#   GEMINI_API_KEY     — optional alternative LLM provider
 ```
 
-## Use as HTTP
+You can use Gemini instead of Anthropic by passing `--provider=gemini`. Anthropic is the default if `ANTHROPIC_API_KEY` is set; Gemini if only `GEMINI_API_KEY` is set.
+
+## How to use
+
+### Stage 1 — Import a Lovable project
 
 ```bash
-curl -X POST http://localhost:3000/api/import \
-  -H 'content-type: application/json' \
-  -d '{"url":"https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID","fresh":false}'
+npm run import -- https://github.com/<owner>/<repo>
 ```
 
-## Use as a function
+Or as a function:
 
 ```ts
 import { importFromUrl } from './src/index.js';
-
 const result = await importFromUrl('https://github.com/owner/repo');
 console.log(result.workdir, result.isLovable);
 ```
 
-## Test from the terminal
+### Stage 2 — Fetch keywords + aggregate
 
 ```bash
-npm run import -- https://github.com/owner/repo
+npm run keywords -- atlassian.com asana.com monday.com
 ```
 
-## Dev workflow
+Or as a function:
+
+```ts
+import { fetchAggregatedKeywords } from './src-competitors/index.js';
+const intel = await fetchAggregatedKeywords(['atlassian.com', 'asana.com'], {
+  keywordLimit: 200,
+  locationCode: 2840, // US
+  languageCode: 'en',
+});
+```
+
+### Full pipeline — competitors → prompts
+
+```bash
+npm run prompts -- --keyword-limit=200 attio.com hubspot.com pipedrive.com close.com folk.app
+```
+
+Or as a function:
+
+```ts
+import { fetchAggregatedKeywords } from './src-competitors/index.js';
+import { generatePrompts } from './src-prompts/index.js';
+
+const intel = await fetchAggregatedKeywords(competitors, { keywordLimit: 200 });
+const set = await generatePrompts(intel);
+console.log(set.prompts);
+```
+
+### Useful flags
 
 ```
-npm install
-cp .env.example .env  # add your GITHUB_TOKEN
-npm run dev
-# open http://localhost:3000
+--keyword-limit=200    keywords fetched per competitor (default 100)
+--candidate-pool=50    keywords passed to the curator
+--top-keywords=12      keywords passed to Haiku sub-agents
+--prompts-per-keyword=3
+--category="CRM software"  optional hint for the curator (it can override)
+--must-contain="crm"   DFS-side LIKE filter (cheap relevance pre-filter)
+--consensus-only       use only keywords ≥2 competitors rank for
+--no-curator           skip the curator (use top-K by score directly)
+--no-aggregator        skip the Sonnet dedup step
+--provider=gemini      override LLM provider
+--fresh                bypass the local DFS cache
 ```
 
-## Known v0 limitations
+## Contracts (TypeScript types)
 
-- Public GitHub repos only. No private-repo or OAuth support yet.
-- Single-page Lovable apps only (no monorepos / sub-paths).
-- Resolver only follows the first `github.com/{owner}/{repo}` link in the Lovable HTML.
-- Tarball cache never expires. Pass `fresh: true` (or check the UI box) to force re-fetch.
-- `sha` is parsed from GitHub's tarball wrapper folder name; if GitHub changes that format, `sha` becomes `undefined`.
+```ts
+// stage 1
+type ImportResult = {
+  jobId: string;
+  workdir: string;
+  repoMeta: { owner, repo, sha?, sourceUrl };
+  isLovable: boolean;
+  detectionReasons: string[];
+  cached: boolean;
+};
+
+// stage 2 — keywords
+type AggregatedIntel = {
+  jobId: string;
+  competitors: string[];
+  locationCode: number;
+  languageCode: string;
+  keywordsByCompetitor: { [domain: string]: RankedKeyword[] };
+  consensus: AggregatedKeyword[];   // 2+ competitors rank for it
+  outliers: AggregatedKeyword[];    // 1 competitor only
+  cached: boolean;
+  fetchedAt: string;
+  costUsd: number;
+};
+
+type AggregatedKeyword = {
+  keyword: string;
+  intent: 'informational' | 'navigational' | 'commercial' | 'transactional' | null;
+  total_volume: number;
+  avg_difficulty: number | null;
+  ranking_competitors: string[];
+  best_position: number;
+  count: number;
+};
+
+// stage 2 — prompts
+type PromptSet = {
+  jobId: string;
+  competitors: string[];
+  prompts: GeneratedPrompt[];
+  modelUsed: string;
+  generatedAt: string;
+  warnings: string[];
+};
+
+type GeneratedPrompt = {
+  id: string;
+  query: string;                        // 1-200 chars; what gets pasted into Peec
+  bucket: 'consideration' | 'awareness' | 'brand-eval';
+  source_keyword: string | null;
+  source_competitors: string[];
+  hypothesis: string;
+};
+```
+
+## Cost per run (rough)
+
+| Step | Cost |
+|---|---|
+| DFS keyword fetch (5 competitors × 200 keywords) | $0.10–0.15 |
+| Curator (1 Sonnet call) | ~$0.01 |
+| Sub-agents (~12 Haiku calls in parallel) | ~$0.02 |
+| Aggregator (1 Sonnet call) | ~$0.02 |
+| **Total per run** | **~$0.15–0.25** |
+
+Cached DFS responses are free on subsequent runs (`.cache/dataforseo/agg_*.json`).
+
+## File layout
+
+```
+.
+├── src/                          stage 1 — Lovable URL → workdir
+│   ├── index.ts                  importFromUrl(url, opts?)
+│   ├── resolver.ts               URL → { owner, repo }
+│   ├── fetcher.ts                tarball fetch + extract + cache
+│   ├── detector.ts               is-this-Lovable check
+│   └── types.ts
+├── src-competitors/              stage 2a — DataForSEO
+│   ├── index.ts                  fetchAggregatedKeywords(competitors[], opts?)
+│   ├── client.ts                 Basic-auth wrapper, full error mapping
+│   ├── endpoints.ts              fetchRankedKeywords + DFS filters
+│   ├── aggregate.ts              consensus/outliers across competitors
+│   └── types.ts
+├── src-prompts/                  stage 2b-e — keywords → Peec prompts
+│   ├── index.ts                  generatePrompts(intel, opts?)
+│   ├── select.ts                 deterministic scoring + variety
+│   ├── curator.ts                Sonnet — brand-agnostic relevance gate
+│   ├── subagent.ts               Haiku — 1 keyword → 3 diverse prompts
+│   ├── aggregator.ts             Sonnet — semantic dedup + bucket ratio
+│   ├── llm.ts                    provider abstraction (Anthropic | Gemini)
+│   └── types.ts
+├── scripts/
+│   ├── import.ts                 CLI for stage 1
+│   ├── keywords.ts               CLI for stage 2a
+│   └── prompts.ts                CLI for full pipeline
+└── peec-ai-research/             design docs (read these for the why)
+    ├── PLAN.md
+    ├── strategy.md
+    ├── extraction-strategy.md
+    ├── generation-strategy.md
+    ├── peec-api.md
+    ├── peec-prompt-patterns.md
+    ├── marketing-skills.md
+    ├── skills-deep-analysis.md
+    └── agent-design.md
+```
+
+## Bucket ratio target
+
+Aiming for the funnel split observed in real Peec data and Peec's own published guidance:
+
+| Bucket | Share | Frame |
+|---|---|---|
+| Consideration | 60% | "Best X for Y", "Top X tools" |
+| Awareness | 27% | "What is X?", "How does X work?" |
+| Brand-eval | 13% | "X vs Y" (not yet implemented — deterministic, no LLM needed) |
+
+The aggregator enforces this loosely; data quality wins over hitting an exact ratio.
+
+## v0 limitations
+
+- Public GitHub repos only for stage 1.
+- Brand-eval bucket isn't generated yet (would be a deterministic step using competitor list + a brand name).
+- DFS `must-contain` filter only supports a single LIKE term (DFS doesn't reliably accept nested OR groups).
+- Gemini free-tier hits 429 on parallel sub-agents; system auto-throttles to concurrency=1 for Gemini.
+- Tarball cache (stage 1) and DFS cache (stage 2) never expire — pass `--fresh` to refresh.
+- DFS Labs API requires account verification at https://app.dataforseo.com/ before any call works.
+
+## Testing brand-agnosticism
+
+The curator step is what makes this work for any brand, not just CRM. To verify, run with completely different industries and watch the curator infer the right category each time:
+
+```bash
+npm run prompts -- monday.com asana.com clickup.com notion.so       # → "project management"
+npm run prompts -- mailchimp.com convertkit.com beehiiv.com         # → "email marketing"
+npm run prompts -- wildcosmetics.com aktlondon.com nativecos.com    # → "natural personal care"
+```
+
+The curator outputs its inferred category as a warning in the run output.
