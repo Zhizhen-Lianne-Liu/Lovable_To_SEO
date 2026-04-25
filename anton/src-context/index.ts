@@ -34,7 +34,7 @@ export type BuildOpts = {
 export async function buildDomainContext(domain: string, opts: BuildOpts = {}): Promise<DomainContext> {
   const llm = resolveLLM({ provider: opts.provider, aggregatorModel: opts.model });
   const url = domain.startsWith('http') ? domain : `https://${domain}`;
-  const { content } = await tavilyExtract(url);
+  const { content, source } = await tavilyExtract(url);
 
   const reply = await llm.client.complete({
     model: opts.model ?? llm.aggregatorModel,
@@ -62,7 +62,7 @@ export async function buildDomainContext(domain: string, opts: BuildOpts = {}): 
     icp: Array.isArray(parsed.icp) ? parsed.icp.map(String).filter(Boolean) : [],
     geography: Array.isArray(parsed.geography) ? parsed.geography.map(String).filter(Boolean) : [],
     language: String(parsed.language ?? '').trim(),
-    source_evidence: content.slice(0, 300),
+    source_evidence: `[${source}] ${content.slice(0, 300)}`,
     fetchedAt: new Date().toISOString(),
   };
 }
