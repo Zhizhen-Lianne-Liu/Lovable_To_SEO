@@ -176,6 +176,19 @@ async def fetch_actions_tree(session: ClientSession, project_id: str) -> dict:
     return {"overview": overview_records, "drilled": drilled}
 
 
+async def fetch_project_profile(session: ClientSession, project_id: str) -> dict:
+    """Peec's auto-derived brand profile (industry, target market, audience mix,
+    products & services, brand-positioning adjectives). MCP-only — REST has no
+    equivalent. Useful prior for the next-stage rewriter (gives it Peec's view
+    of what the brand IS before it picks an angle to enhance for)."""
+    try:
+        result = await call_tool(session, "get_project_profile", {"project_id": project_id})
+        # MCP wraps it as { profile: {...} | null }
+        return result.get("profile") or {"_empty": True}
+    except RuntimeError as e:
+        return {"_error": str(e)}
+
+
 async def main(project_id: str):
     auth = make_auth_provider()
     print(f"[mcp] Connecting to {SERVER_URL} …")
@@ -188,18 +201,34 @@ async def main(project_id: str):
             print(f"\n[mcp] Fetching actions tree for {project_id}…")
             actions = await fetch_actions_tree(session, project_id)
 
+            print(f"[mcp] Fetching project profile for {project_id}…")
+            profile = await fetch_project_profile(session, project_id)
+
+            payload = {"actions": actions, "project_profile": profile}
+
             out = ROOT / "data" / project_id / "actions_via_mcp.json"
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(json.dumps(actions, indent=2))
+            out.write_text(json.dumps(payload, indent=2))
             print(f"\nSaved → {out}")
 
-            # Print a summary
+            # Print summaries
             print(f"\nOverview slices: {len(actions['overview'])}")
             print(f"Drilled (non-zero opportunity): {len(actions['drilled'])}")
             for d in actions["drilled"][:5]:
                 s = d["slice"]
                 key = s.get("domain") or s.get("url_classification") or ""
                 print(f"  [{s['action_group_type']:10}] {key:20} score={s['opportunity_score']:.3f}")
+
+            if isinstance(profile, dict) and profile.get("name"):
+                print(f"\nProject profile: {profile.get('name')} ({profile.get('industry', '?')})")
+                print(f"  occupation: {(profile.get('occupation') or '')[:120]}")
+                print(f"  target markets: {[t.get('location') for t in profile.get('targetMarkets', [])]}")
+                print(f"  brand presentation: {profile.get('brandPresentation')}")
+                print(f"  products & services: {profile.get('productsAndServices')}")
+            elif profile.get("_empty"):
+                print(f"\nProject profile: (none set in Peec yet)")
+            else:
+                print(f"\nProject profile: {profile}")
 
 
 if __name__ == "__main__":

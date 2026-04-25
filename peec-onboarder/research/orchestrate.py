@@ -118,11 +118,18 @@ def main():
     snap = complete_snapshot(args.project_id, days=1)
     print_summary(snap)
 
-    # ---- Step 6: Actions overlay via MCP (REST has no actions endpoint) ----
+    # ---- Step 6: MCP overlay — actions + project_profile (REST has neither) ----
     if args.no_mcp:
-        print("\n[6/6] Skipping MCP actions overlay (--no-mcp). Snapshot has no recommendations.")
+        print("\n[6/6] Skipping MCP overlay (--no-mcp). Snapshot has no actions or project profile.")
     else:
-        snap["actions_via_mcp"] = _fetch_actions_via_mcp(args.project_id)
+        mcp_payload = _fetch_actions_via_mcp(args.project_id)
+        # New shape: {actions: {...}, project_profile: {...}}. Old shape: just the actions tree.
+        if isinstance(mcp_payload, dict) and "actions" in mcp_payload:
+            snap["actions_via_mcp"] = mcp_payload.get("actions", {})
+            snap["project_profile"] = mcp_payload.get("project_profile", {})
+        else:
+            snap["actions_via_mcp"] = mcp_payload
+            snap["project_profile"] = {}
 
     out = Path(__file__).resolve().parent.parent / "data" / args.project_id / f"snapshot_{int(time.time())}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
