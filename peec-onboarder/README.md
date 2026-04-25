@@ -26,14 +26,18 @@ Three Tavily approaches run in parallel and we keep the consensus list (≥2-of-
 ## Setup (one-time)
 
 ```bash
+# From the repo root:
+cp .env.example .env                            # fill in PEEC_API_KEY, TAVILY_API_KEY,
+                                                # ANTHROPIC_API_KEY, DATAFORSEO_LOGIN/PASSWORD
 cd peec-onboarder
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env       # then fill in TAVILY_API_KEY + PEEC_API_KEY
+cd ../anton
+npm install                                     # one-time, ~30s
 ```
 
-The Peec API key must be **company-scoped** (`skc-...`) — generate at https://app.peec.ai/api-keys.
+Single source of truth for env vars is **the repo-root `.env`**. Both the orchestrator and Anton's CLI read from it (with a fallback chain). The Peec API key must be **company-scoped** (`skc-...`) — generate at https://app.peec.ai/api-keys.
 
 ### MCP authentication (one-time, only if you want actions data)
 

@@ -6,8 +6,8 @@ Steps:
   2. Anton's prompt generation (anton/scripts/prompts.ts via subprocess)
   3. Peec push: brands (own + competitors) + prompts (REST)
   4. Wait ~60s for chats to land
-  5. Snapshot composer (research/snapshot.py — REST)
-  6. Optional: actions via MCP (research/mcp_client.py)
+  5. Snapshot composer — REST endpoints (research/snapshot.py)
+  6. Actions overlay — MCP only (research/mcp_client.py via subprocess) merged in
 
 Final artifact: data/<project_id>/snapshot_<ts>.json — the GEO insights for the
 next pipeline stage.
@@ -17,9 +17,12 @@ Usage:
   python3 orchestrate.py --domain attio.com --project-id or_xxx --dry-run
   python3 orchestrate.py --domain attio.com --project-id or_xxx --skip-prompts
   python3 orchestrate.py --domain attio.com --project-id or_xxx --prompts-from prompts.json
+  python3 orchestrate.py --domain attio.com --project-id or_xxx --no-mcp
 """
 import argparse
 import json
+import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -43,6 +46,8 @@ def main():
     ap.add_argument("--wait-seconds", type=int, default=90,
                     help="Seconds to wait after pushing prompts before the snapshot (default 90)")
     ap.add_argument("--no-snapshot", action="store_true", help="Skip the readback snapshot")
+    ap.add_argument("--no-mcp", action="store_true",
+                    help="Skip the MCP actions overlay (REST-only snapshot, missing actions/recommendations)")
     args = ap.parse_args()
 
     load_env()
@@ -108,17 +113,50 @@ def main():
         time.sleep(10)
 
     # ---- Step 5: Compose the snapshot ----
-    print("\n[5/5] Composing snapshot via REST endpoints…")
+    print("\n[5/6] Composing snapshot via REST endpoints…")
     from snapshot import complete_snapshot, print_summary
     snap = complete_snapshot(args.project_id, days=1)
     print_summary(snap)
+
+    # ---- Step 6: Actions overlay via MCP (REST has no actions endpoint) ----
+    if args.no_mcp:
+        print("\n[6/6] Skipping MCP actions overlay (--no-mcp). Snapshot has no recommendations.")
+    else:
+        snap["actions_via_mcp"] = _fetch_actions_via_mcp(args.project_id)
 
     out = Path(__file__).resolve().parent.parent / "data" / args.project_id / f"snapshot_{int(time.time())}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(snap, indent=2, default=str))
     print(f"\n[DONE] snapshot saved → {out}")
-    print("\nNext: run `python3 research/mcp_client.py <project_id>` to add Peec's actions data "
-          "(MCP-only) into a separate JSON, or merge it into snapshot.json downstream.")
+
+
+def _fetch_actions_via_mcp(project_id: str) -> dict:
+    """Run mcp_client.py as a subprocess, then read its output JSON.
+
+    First run opens a browser for Peec OAuth (one-time). Subsequent runs are
+    headless using the persisted .peec_oauth.json.
+    """
+    print("\n[6/6] Fetching Peec actions via MCP (REST-unavailable layer)…")
+    here = Path(__file__).resolve().parent
+    mcp_script = here / "mcp_client.py"
+    actions_path = here.parent / "data" / project_id / "actions_via_mcp.json"
+
+    venv_py = here.parent / ".venv" / "bin" / "python3"
+    py = str(venv_py) if venv_py.exists() else sys.executable
+    if not venv_py.exists():
+        print(f"      [warn] .venv not found — falling back to {py}. "
+              "If 'mcp' isn't installed in this interpreter, the actions step will fail "
+              "(harmless — REST snapshot still ships).")
+
+    cmd = [py, str(mcp_script), project_id]
+    proc = subprocess.run(cmd, env=os.environ.copy(),
+                          stdout=None, stderr=None, check=False)
+    if proc.returncode != 0:
+        print(f"      [warn] mcp_client exited {proc.returncode} — actions overlay unavailable.")
+        return {"_error": f"mcp_client exit {proc.returncode}"}
+    if not actions_path.exists():
+        return {"_error": "mcp_client ran but produced no JSON file"}
+    return json.loads(actions_path.read_text())
 
 
 if __name__ == "__main__":

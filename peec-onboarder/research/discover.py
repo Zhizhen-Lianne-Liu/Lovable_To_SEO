@@ -24,17 +24,24 @@ from urllib.parse import urlparse
 import requests
 
 ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = ROOT.parent
 DATA = ROOT / "data"
 
 API = "https://api.tavily.com"
 
 
 def load_env():
-    env_path = ROOT / ".env"
-    for line in env_path.read_text().splitlines():
-        if "=" in line and not line.strip().startswith("#"):
-            k, v = line.split("=", 1)
-            os.environ.setdefault(k.strip(), v.strip())
+    """Load env vars from the repo-root .env (single source of truth).
+    Falls back to peec-onboarder/.env if root doesn't exist (legacy)."""
+    for candidate in (REPO_ROOT / ".env", ROOT / ".env"):
+        if not candidate.exists():
+            continue
+        for line in candidate.read_text().splitlines():
+            if "=" in line and not line.strip().startswith("#"):
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+        return
+    print(f"[load_env] WARN: no .env found at {REPO_ROOT}/.env or {ROOT}/.env")
 
 
 def domain_to_slug(domain: str) -> str:

@@ -110,12 +110,14 @@ def generate_prompts(
     print(f"        output → {out_path}")
 
     # Stream his stderr live so we see progress; capture stdout (we ignore it,
-    # the structured data is in the JSON file).
+    # the structured data is in the JSON file). Pass through our env (loaded
+    # from repo-root .env) so Anton's pipeline sees the same secrets.
     proc = subprocess.run(
         cmd, cwd=ANTON_DIR,
         check=False,  # we'll handle the exit code ourselves
         stdout=subprocess.DEVNULL,
         stderr=None,  # inherit terminal stderr → live progress
+        env=os.environ.copy(),
     )
     if proc.returncode != 0:
         raise RuntimeError(f"anton prompt-gen failed with exit {proc.returncode}")

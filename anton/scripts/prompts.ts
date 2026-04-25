@@ -1,6 +1,12 @@
-import 'dotenv/config';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+// Load env from anton/.env if present, otherwise the repo-root .env (single
+// source of truth across the orchestrator, anton, and peec-onboarder).
+import dotenv from 'dotenv';
+import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+for (const candidate of ['.env', '../.env']) {
+  const abs = resolve(process.cwd(), candidate);
+  if (existsSync(abs)) { dotenv.config({ path: abs }); break; }
+}
 import { fetchAggregatedKeywords } from '../src-competitors/index.js';
 import { generatePrompts } from '../src-prompts/index.js';
 
