@@ -80,19 +80,23 @@ def generate_prompts(
     country: str | None = None,
     own_domain: str | None = None,
     keyword_limit: int = 200,
+    category: str | None = None,
     extra_args: list[str] | None = None,
     out_path: Path | None = None,
 ) -> dict:
-    """Run Anton's pipeline. Returns the parsed PromptSet dict.
+    """Run the TS prompt-generation pipeline. Returns the parsed PromptSet dict.
 
     competitors: list of root domains (no protocol, no path), e.g. ["hubspot.com", "pipedrive.com"]
     country:     ISO 3166-1 alpha-2. If None, derived from own_domain TLD.
-    own_domain:  used for country auto-detection (not passed to Anton — he doesn't take a brand).
+    own_domain:  used for country auto-detection.
+    category:    when provided, passed to the TS pipeline as --category= so the
+                 curator/sub-agents have a ground-truth category instead of inferring
+                 from competitor keyword patterns. Pass deep_profile.category_for_search.
     """
     if not competitors:
         raise ValueError("competitors list is empty")
     if not ANTON_DIR.exists():
-        raise FileNotFoundError(f"anton/ not found at {ANTON_DIR}. Are we in the integration branch?")
+        raise FileNotFoundError(f"ts/ not found at {ANTON_DIR}. Check the folder layout.")
 
     ensure_npm_install()
 
@@ -113,9 +117,11 @@ def generate_prompts(
         f"--language={language}",
         f"--out={out_path}",
         "--quiet",
-        *(extra_args or []),
-        *competitors,
     ]
+    if category:
+        cmd.append(f"--category={category}")
+    cmd.extend(extra_args or [])
+    cmd.extend(competitors)
 
     print(f"[anton] running: npm run prompts -- ... {' '.join(competitors)}")
     print(f"        country={country}  location={location_code}  language={language}")

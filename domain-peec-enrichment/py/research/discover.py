@@ -166,7 +166,136 @@ def profile_self(domain: str) -> dict:
 
 # ---------------- Approach A: /research with output_schema ---------------- #
 
-def approach_a_research(self_profile: dict, n: int = 10) -> dict:
+VALIDATE_SYSTEM = """You are a competitive-intelligence validator. Given a brand profile and a list of candidate competitors, classify each candidate as a TRUE direct competitor or NOT.
+
+A TRUE direct competitor:
+- Solves the same primary problem for the same buyer
+- Operates at a comparable scale tier (don't pair startups with Fortune 500 incumbents)
+- Operates in the same category (not adjacent-but-different)
+- Targets the same geography/audience or a strong superset
+
+REJECT candidates that are:
+- Parent companies, subsidiaries, or holding companies
+- Customers, vendors, or integrations of the brand
+- Mass-content sites (Reddit, YouTube, Wikipedia, Quora)
+- In a clearly different category
+- Vastly larger or vastly smaller in scale tier
+- Unverifiable / unknown to you
+
+OUTPUT — only valid JSON, no fences, no prose:
+{
+  "verdicts": [
+    {"domain": "<exact domain from input>", "validated": true|false, "reason": "<one sentence>"}
+  ]
+}"""
+
+
+def validate_against_profile(candidates: list[dict], deep_profile: dict, target_n: int = 10) -> list[dict]:
+    """Anthropic relevance gate. Annotates each candidate with `validated` (bool)
+    and `validation_reason`. Reorders so validated candidates come first, then
+    fills from rejected ones up to target_n if needed (so we never starve the
+    pipeline downstream)."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key or not candidates:
+        return candidates
+
+    profile_block = "\n".join([
+        f"Brand: {deep_profile.get('name')}",
+        f"Domain: {deep_profile.get('domain')}",
+        f"Industry: {deep_profile.get('industry')}",
+        f"Category: {deep_profile.get('category_for_search')}",
+        f"What they do: {deep_profile.get('occupation')}",
+        f"Audience: {deep_profile.get('audience')}",
+        f"Scale tier: {deep_profile.get('scale_tier')}",
+    ])
+    candidate_block = "\n".join(
+        f"- {c['domain']} | {c.get('canonical_name', c.get('name', c['domain']))}"
+        + (f" | {c.get('why_relevant', '')[:120]}" if c.get('why_relevant') else "")
+        for c in candidates
+    )
+    user_msg = f"BRAND PROFILE:\n{profile_block}\n\nCANDIDATES:\n{candidate_block}"
+
+    r = requests.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": os.environ.get("PROFILE_MODEL", "claude-sonnet-4-6"),
+            "max_tokens": 1500,
+            "system": VALIDATE_SYSTEM,
+            "messages": [{"role": "user", "content": user_msg}],
+        },
+        timeout=90,
+    )
+    r.raise_for_status()
+    text = r.json()["content"][0]["text"]
+    if "```" in text:
+        chunks = text.split("```")
+        text = max((c.lstrip("json").strip() for c in chunks[1::2]), key=len, default=text)
+    parsed = json.loads(text.strip())
+
+    by_domain = {v["domain"].lower(): v for v in parsed.get("verdicts", [])}
+    for c in candidates:
+        v = by_domain.get(c["domain"].lower())
+        if v:
+            c["validated"] = bool(v.get("validated"))
+            c["validation_reason"] = v.get("reason", "")
+        else:
+            # No verdict returned — mark as None (unknown)
+            c["validated"] = None
+            c["validation_reason"] = "no verdict returned"
+
+    # Reorder: validated=True first (preserve original order within that bucket),
+    # then unknown, then validated=False. Cap at target_n.
+    validated = [c for c in candidates if c.get("validated") is True]
+    unknown = [c for c in candidates if c.get("validated") is None]
+    rejected = [c for c in candidates if c.get("validated") is False]
+
+    # Trust validated set; fall back to others only if we don't have enough
+    out = list(validated)
+    for c in unknown:
+        if len(out) >= target_n:
+            break
+        out.append(c)
+    for c in rejected:
+        if len(out) >= target_n:
+            break
+        out.append(c)
+    # Append leftover rejected ones at the end (preserved for audit, won't be used downstream)
+    for c in rejected:
+        if c not in out:
+            out.append(c)
+    return out
+
+
+def _profile_context_block(deep_profile: dict | None, self_profile: dict) -> str:
+    """Build the grounding context block injected into Tavily approach prompts.
+    Uses the deep profile when available; falls back to the shallow profile."""
+    if deep_profile:
+        items = [
+            f"Brand: {deep_profile.get('name') or self_profile['name_guess']}",
+            f"Domain: {deep_profile.get('domain') or self_profile['domain']}",
+            f"Industry: {deep_profile.get('industry') or '(unknown)'}",
+            f"Category: {deep_profile.get('category_for_search') or '(unknown)'}",
+            f"What they do: {deep_profile.get('occupation') or '(unknown)'}",
+            f"Audience: {deep_profile.get('audience') or '(unknown)'}",
+            f"Audience sophistication: {deep_profile.get('audience_sophistication') or '(unknown)'}",
+            f"Products: {', '.join(deep_profile.get('products_and_services') or []) or '(unknown)'}",
+            f"Scale tier: {deep_profile.get('scale_tier') or '(unknown)'}",
+            f"Pricing tier: {deep_profile.get('pricing_tier') or '(unknown)'}",
+            f"Key differentiators: {', '.join(deep_profile.get('key_differentiators') or []) or '(unknown)'}",
+        ]
+        cs = deep_profile.get('competitor_signals') or []
+        if cs:
+            items.append(f"Competitors mentioned in source material: {', '.join(cs)}")
+        return "\n".join(items)
+    return f"Brand: {self_profile['name_guess']}\nDomain: {self_profile['domain']}\n\nHomepage excerpt:\n{self_profile['raw_excerpt']}"
+
+
+def approach_a_research(self_profile: dict, n: int = 10, deep_profile: dict | None = None) -> dict:
     schema = {
         "properties": {
             "competitors": {
@@ -186,13 +315,18 @@ def approach_a_research(self_profile: dict, n: int = 10) -> dict:
         },
         "required": ["competitors"],
     }
+    scale_tier = (deep_profile or {}).get("scale_tier")
+    scale_clause = (
+        f" Match the brand's scale tier ({scale_tier}) — do not return enterprise incumbents like Salesforce / SAP / Adobe if the brand is a startup."
+        if scale_tier else ""
+    )
     question = (
         f"List the top {n} direct competitors of the company at {self_profile['domain']} "
         f"({self_profile['name_guess']}). Direct competitor = same buyer, same primary problem, "
         f"comparable scale tier. EXCLUDE: parent companies, subsidiaries, customers, vendors, "
-        f"brands in adjacent but non-competing categories. Return root domain only "
-        f"(e.g. samsung.com, not www.samsung.com or samsung.com/products). "
-        f"Brief context about the input company:\n\n{self_profile['raw_excerpt']}"
+        f"brands in adjacent but non-competing categories.{scale_clause} "
+        f"Return root domain only (e.g. samsung.com, not www.samsung.com or samsung.com/products). "
+        f"Ground-truth context about the input company:\n\n{_profile_context_block(deep_profile, self_profile)}"
     )
     body = tavily_research(question, schema, model="mini")
     if body.get("status") != "completed":
@@ -251,19 +385,36 @@ def extract_domains_from_text(text: str, exclude: set[str]) -> list[str]:
     return found
 
 
-def approach_b_cooccur(self_profile: dict, n: int = 10) -> dict:
+def approach_b_cooccur(self_profile: dict, n: int = 10, deep_profile: dict | None = None) -> dict:
     """Run multiple search channels, each with include_answer='advanced'.
-    Extract competitor domains from each answer. Score by co-occurrence across channels."""
+    Extract competitor domains from each answer. Score by co-occurrence across channels.
+
+    When a deep profile is available, queries are grounded with category /
+    audience / scale tier so Tavily returns tighter result sets."""
     brand = self_profile["name_guess"]
     self_domain = self_profile["domain"]
     exclude = {self_domain}
 
-    queries = [
-        ("alternatives", f"What are the top alternatives to {brand} ({self_domain})? List with their websites."),
-        ("vs",           f"What companies compete head-to-head with {brand} ({self_domain})? Include their domains."),
-        ("category",     f"What is the product category of {brand} ({self_domain})? Who are the leading companies in that category?"),
-        ("buyers",       f"If a buyer evaluating {brand} ({self_domain}) wanted to compare options, which companies and domains would they shortlist?"),
-    ]
+    category = (deep_profile or {}).get("category_for_search")
+    audience = (deep_profile or {}).get("audience")
+    scale = (deep_profile or {}).get("scale_tier")
+
+    if category and audience:
+        cat_clause = f" in the {category} space for {audience}"
+        scale_clause = f", match {scale} scale" if scale else ""
+        queries = [
+            ("alternatives", f"What are the top alternatives to {brand} ({self_domain}){cat_clause}{scale_clause}? List with their websites."),
+            ("vs",           f"Which companies compete head-to-head with {brand} ({self_domain}){cat_clause}? Include their domains."),
+            ("category",     f"Leading companies in the {category} category for {audience}. List names and domains."),
+            ("buyers",       f"Buyers shortlisting {brand} in {category} for {audience} — which other companies would they evaluate? Include domains."),
+        ]
+    else:
+        queries = [
+            ("alternatives", f"What are the top alternatives to {brand} ({self_domain})? List with their websites."),
+            ("vs",           f"What companies compete head-to-head with {brand} ({self_domain})? Include their domains."),
+            ("category",     f"What is the product category of {brand} ({self_domain})? Who are the leading companies in that category?"),
+            ("buyers",       f"If a buyer evaluating {brand} ({self_domain}) wanted to compare options, which companies and domains would they shortlist?"),
+        ]
 
     candidates: dict[str, dict] = {}
     raw_answers: dict[str, str] = {}
@@ -296,10 +447,18 @@ def approach_b_cooccur(self_profile: dict, n: int = 10) -> dict:
 
 # ---------------- Approach C: search + include_answer ---------------- #
 
-def approach_c_answer(self_profile: dict, n: int = 10) -> list[dict]:
+def approach_c_answer(self_profile: dict, n: int = 10, deep_profile: dict | None = None) -> tuple[list[dict], str]:
     brand = self_profile["name_guess"]
+    category = (deep_profile or {}).get("category_for_search")
+    audience = (deep_profile or {}).get("audience")
+    scale = (deep_profile or {}).get("scale_tier")
+    grounded = ""
+    if category and audience:
+        grounded = f" in the {category} space for {audience}"
+    if scale:
+        grounded += f", match {scale} scale"
     query = (
-        f"Who are the top {n} direct competitors of {brand} ({self_profile['domain']})? "
+        f"Who are the top {n} direct competitors of {brand} ({self_profile['domain']}){grounded}? "
         f"List each with their domain. Same product category, same buyer."
     )
     res = tavily_search(query, search_depth="advanced", max_results=15, include_answer="advanced")
@@ -330,16 +489,29 @@ def run(domain: str) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"→ Output: {out_dir}")
 
-    print(f"\n[0] Profiling {domain}…")
+    print(f"\n[0a] Cheap profile (Tavily extract on {domain})…")
     self_profile = profile_self(domain)
     (out_dir / "self.json").write_text(json.dumps(self_profile, indent=2))
     print(f"  Brand guess: {self_profile['name_guess']}")
 
-    results = {"input": domain, "self": self_profile, "approaches": {}}
+    print(f"\n[0b] Deep profile (multi-source + Anthropic synthesis)…")
+    deep_profile = None
+    try:
+        from profile import enrich_profile
+        deep_profile = enrich_profile(domain, name_guess=self_profile["name_guess"])
+        if deep_profile:
+            (out_dir / "deep_profile.json").write_text(json.dumps(deep_profile, indent=2))
+            print(f"  ✓ category_for_search={deep_profile.get('category_for_search')!r}  scale={deep_profile.get('scale_tier')!r}")
+        else:
+            print("  ! deep profile unavailable, falling back to ungrounded queries")
+    except Exception as e:
+        print(f"  ! deep profile failed: {e} — falling back to ungrounded queries")
+
+    results = {"input": domain, "self": self_profile, "deep_profile": deep_profile, "approaches": {}}
 
     print("\n[A] /research with output_schema (this can take 30-90s)…")
     try:
-        a = approach_a_research(self_profile)
+        a = approach_a_research(self_profile, deep_profile=deep_profile)
         results["approaches"]["A_research"] = a
         comps_a = a.get("competitors", [])
         print(f"  → {len(comps_a)} competitors")
@@ -351,7 +523,7 @@ def run(domain: str) -> dict:
 
     print("\n[B] Multi-channel answer-extraction…")
     try:
-        b = approach_b_cooccur(self_profile)
+        b = approach_b_cooccur(self_profile, deep_profile=deep_profile)
         results["approaches"]["B_cooccur"] = b
         comps_b = b.get("competitors", [])
         print(f"  → {len(comps_b)} candidates")
@@ -363,7 +535,7 @@ def run(domain: str) -> dict:
 
     print("\n[C] Search + include_answer (single shot)…")
     try:
-        c, answer = approach_c_answer(self_profile)
+        c, answer = approach_c_answer(self_profile, deep_profile=deep_profile)
         results["approaches"]["C_answer"] = {"competitors": c, "raw_answer": answer}
         print(f"  → {len(c)} competitors")
         for x in c[:5]:
@@ -397,13 +569,28 @@ def run(domain: str) -> dict:
     print("\n[NORMALIZE]")
     from normalize import normalize
     a_picks = results["approaches"].get("A_research", {}).get("competitors", [])
-    final = normalize(consensus, a_picks, self_profile, n=10)
+    normalized = normalize(consensus, a_picks, self_profile, n=15)  # over-fetch for validation cull
+
+    # Validation: Anthropic relevance gate against the deep profile.
+    # Drops parent companies, customers, vendors, vastly wrong-tier brands,
+    # adjacent-but-different-category domains. Only runs if we have a deep profile.
+    if deep_profile and normalized:
+        print("\n[VALIDATE] Anthropic relevance gate vs deep profile…")
+        try:
+            normalized = validate_against_profile(normalized, deep_profile, target_n=10)
+            kept = sum(1 for c in normalized if c.get("validated") is True)
+            print(f"  → {kept} validated as direct competitors of {len(normalized)} candidates")
+        except Exception as e:
+            print(f"  ! validation failed: {e} — keeping unfiltered")
+
+    final = normalized[:10]
     results["final"] = final
 
-    print(f"\n[FINAL] Top {len(final)} normalized competitors:")
+    print(f"\n[FINAL] Top {len(final)} competitors:")
     for c in final:
-        why = (c.get("why_relevant") or "")[:80]
-        print(f"  • {c.get('canonical_name', c['name']):20} {c['domain']:30} v={c['votes']} {why}")
+        why = (c.get("why_relevant") or c.get("validation_reason") or "")[:80]
+        flag = "✓" if c.get("validated") is True else ("✗" if c.get("validated") is False else " ")
+        print(f"  {flag} {c.get('canonical_name', c['name']):20} {c['domain']:30} v={c['votes']} {why}")
 
     (out_dir / "results.json").write_text(json.dumps(results, indent=2))
     print(f"\nSaved → {out_dir}/results.json")

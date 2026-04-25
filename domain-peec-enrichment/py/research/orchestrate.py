@@ -76,12 +76,19 @@ def main():
     elif args.skip_prompts:
         print("\n[2/5] Skipping prompt generation (--skip-prompts)")
     else:
-        print("\n[2/5] Generating prompts via anton/'s pipeline (this can take 60–90s)…")
+        print("\n[2/5] Generating prompts via the TS pipeline (this can take 60–90s)…")
         from anton_runner import generate_prompts
+        # Pass the deep profile's category as ground truth so the curator
+        # doesn't have to infer it from competitor keyword patterns.
+        deep_profile = results.get("deep_profile") or {}
+        category_hint = deep_profile.get("category_for_search")
+        if category_hint:
+            print(f"      category hint from deep profile: {category_hint!r}")
         prompt_set = generate_prompts(
             competitor_domains,
             country=args.country,
             own_domain=self_profile["domain"],
+            category=category_hint,
         )
 
     prompts = (prompt_set or {}).get("prompts", []) if prompt_set else []
