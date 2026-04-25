@@ -11,5 +11,9 @@ out/
 __pycache__/
 *.pyc
 peec-onboarder/data/
-peec-onboarder/.env
-peec-onboarder/.peec_oauth.json
+
+# Secrets — never commit, anywhere in the tree
+**/.env
+**/.env.local
+.peec_oauth.json
+**/.peec_oauth.json
