@@ -91,8 +91,21 @@ def fetch_actions(pid, scope, **extras):
 
 
 def fetch_url_content(pid, url):
-    """Tavily-style scraped markdown of any URL Peec saw."""
+    """Scraped markdown of a cited URL — lets the next stage see what the AI 'read'."""
     return _post("/sources/urls/content", {"url": url}, {"project_id": pid})
+
+
+def fetch_search_queries(pid, start, end, limit=500):
+    """Fanout search queries the AI engines actually ran internally to answer prompts.
+    Pure SEO/GEO targeting gold — these are the strings to optimize content for."""
+    body = {"start_date": start, "end_date": end, "limit": limit}
+    return _post("/queries/search", body, {"project_id": pid}).get("data", [])
+
+
+def fetch_shopping_queries(pid, start, end, limit=500):
+    """Same as search_queries but for shopping intent. Often empty for B2B SaaS."""
+    body = {"start_date": start, "end_date": end, "limit": limit}
+    return _post("/queries/shopping", body, {"project_id": pid}).get("data", [])
 
 
 # ---------------- Composer ---------------- #
@@ -353,6 +366,34 @@ def complete_snapshot(project_id: str, days: int = 7,
     actions_overview = fetch_actions(project_id, "overview")
     actions = _aggregate_actions(project_id, actions_overview)
 
+    # 5b. Fanout queries — what the AIs actually searched for (SEO targeting)
+    print("  fanout queries (search + shopping)…")
+    try:
+        fanout_search   = fetch_search_queries(project_id, s, e)
+    except requests.HTTPError as ex:
+        print(f"    [warn] search queries failed: {ex}")
+        fanout_search = []
+    try:
+        fanout_shopping = fetch_shopping_queries(project_id, s, e)
+    except requests.HTTPError as ex:
+        print(f"    [warn] shopping queries failed: {ex}")
+        fanout_shopping = []
+
+    # 5c. URL content for the top gap URLs — lets the next stage *see* what AI is reading
+    # (skip if we already have many gaps to keep latency reasonable)
+    print("  url content for top gap URLs (max 10)…")
+    url_contents: dict[str, str] = {}
+    for r in urls_gap[:10]:
+        url = r.get("url")
+        if not url:
+            continue
+        try:
+            res = fetch_url_content(project_id, url)
+            md = (res.get("data") or res).get("content", "") if isinstance(res, dict) else ""
+            url_contents[url] = (md or "")[:5000]  # cap each at 5KB
+        except requests.HTTPError:
+            continue
+
     # 6. Compose output
     own_metrics = next((_flatten_brand_row(r) for r in overall
                         if r["brand"]["id"] == own_id), None)
@@ -408,7 +449,10 @@ def complete_snapshot(project_id: str, days: int = 7,
             },
         },
         "fanout_queries": _fanout_queries(chat_contents),
+        "fanout_queries_search":   fanout_search,    # ← from /queries/search (full project history)
+        "fanout_queries_shopping": fanout_shopping,  # ← from /queries/shopping
         "diagnostics": _diagnostics(chat_contents, own_id, prompt_text),
+        "url_contents": url_contents,  # ← scraped markdown of top 10 gap URLs (what AI is reading)
         "_raw": {
             "chat_count_total": len(chats),
             "chat_contents_sampled": len(chat_contents),
