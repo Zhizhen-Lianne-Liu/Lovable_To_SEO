@@ -118,6 +118,56 @@ Classic SEO is the floor (titles, meta, headings, alt text) — not the ceiling.
 
 ---
 
+## HTTP API (Python FastAPI service)
+
+The CLI above is the local tool. The Python service at `src/lovable_to_seo/` powers the web app — same pipeline, exposed over HTTP.
+
+```
+POST /run
+   → [Ingest]   clone to /tmp/ltseo-{run_id}/
+   → asyncio.gather(
+         [Prerender] Agent SDK loop                    # reads local disk
+                     → /tmp/ltseo-{run_id}/seo/        # local scratch only
+                       index.html (markup + inlined CSS + assets/)
+         [Diagnose]  httpx → Peec REST (3 in parallel) # hits network
+     )                                                  # run concurrently
+   → [Analyze]  pure Python decision table → ActionItem list
+   → [Enhance]  Agent SDK loop
+                → edits /tmp/ltseo-{run_id}/seo/index.html in place
+                → writes seo/robots.txt, seo/sitemap.xml
+   → [Ship]     read /tmp/ltseo-{run_id}/seo/* off disk
+                strip "seo/" prefix → publish at repo ROOT on main:
+                  index.html, robots.txt, sitemap.xml, assets/
+                GitHub Git Data API → blobs → fresh tree (no base_tree)
+                → fast-forward main
+   → RunResult { commit_url, commit_sha, run_id }
+```
+
+`seo/` is local scratch only — it never appears on the remote. Ship replaces `main` entirely (one-way migration; original React source stays in the parent commit and is recoverable via `git revert HEAD`).
+
+```bash
+# Spin up
+cp .env.example .env   # add ANTHROPIC_API_KEY + GITHUB_TOKEN
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+uvicorn lovable_to_seo.main:app --reload
+
+# Dry run (no GitHub push, uses fixture Peec data)
+curl -X POST localhost:8000/run/sync \
+  -H "Content-Type: application/json" \
+  -d '{"github_repo_url":"https://github.com/owner/repo",
+       "peec_project_id":"demo","own_brand_id":"br_receiptly","push":false}'
+
+# Preview the output locally (macOS-compatible path)
+SEO_DIR=$(find "${TMPDIR:-/tmp}" -maxdepth 1 -name "ltseo-*" -type d | xargs ls -dt 2>/dev/null | head -1)
+python3 -m http.server 8080 --directory "$SEO_DIR/seo"
+
+# Poll async run
+curl localhost:8000/run/{run_id}
+```
+
+---
+
 ## Roadmap
 
 - [x] CLI pipeline, fixture-mode demo

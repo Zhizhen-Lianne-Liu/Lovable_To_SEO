@@ -5,3 +5,8 @@ dist/
 out/
 *.log
 .DS_Store
+.venv/
+__pycache__/
+*.egg-info/
+*.pyc
+/src/lovable_to_seo.egg-info/
