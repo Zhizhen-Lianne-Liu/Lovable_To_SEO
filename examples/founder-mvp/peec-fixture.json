@@ -1,0 +1,140 @@
+{
+  "_note": "Synthetic Peec data for a fictional tiny Lovable MVP — 'Receiptly', a freelancer expense scanner. Built to demo the wedge: a 1-page founder app with ~zero LLM visibility today, fighting Wave/QuickBooks for buyer attention.",
+  "brand_report": [
+    {
+      "brand_id": "br_receiptly",
+      "brand_name": "Receiptly",
+      "visibility": 0.02,
+      "mention_count": 4,
+      "share_of_voice": 0.01,
+      "sentiment": 0.7,
+      "position": 6.8
+    },
+    {
+      "brand_id": "br_wave",
+      "brand_name": "Wave",
+      "visibility": 0.41,
+      "mention_count": 312,
+      "share_of_voice": 0.28,
+      "sentiment": 0.62,
+      "position": 2.1
+    },
+    {
+      "brand_id": "br_quickbooks",
+      "brand_name": "QuickBooks",
+      "visibility": 0.58,
+      "mention_count": 489,
+      "share_of_voice": 0.36,
+      "sentiment": 0.48,
+      "position": 1.6
+    },
+    {
+      "brand_id": "br_freshbooks",
+      "brand_name": "FreshBooks",
+      "visibility": 0.31,
+      "mention_count": 201,
+      "share_of_voice": 0.18,
+      "sentiment": 0.59,
+      "position": 2.4
+    },
+    {
+      "brand_id": "br_expensify",
+      "brand_name": "Expensify",
+      "visibility": 0.27,
+      "mention_count": 174,
+      "share_of_voice": 0.14,
+      "sentiment": 0.51,
+      "position": 2.8
+    }
+  ],
+  "search_queries": [
+    { "prompt_id": "p1", "chat_id": "c1", "model_id": "m_gpt", "date": "2026-04-10", "query_text": "best receipt scanner app for freelancers" },
+    { "prompt_id": "p2", "chat_id": "c2", "model_id": "m_gpt", "date": "2026-04-11", "query_text": "free expense tracker for self-employed designers" },
+    { "prompt_id": "p3", "chat_id": "c3", "model_id": "m_perplexity", "date": "2026-04-12", "query_text": "how to track business expenses without QuickBooks" },
+    { "prompt_id": "p4", "chat_id": "c4", "model_id": "m_gemini", "date": "2026-04-12", "query_text": "AI receipt scanner that exports to spreadsheet" },
+    { "prompt_id": "p5", "chat_id": "c5", "model_id": "m_gpt", "date": "2026-04-13", "query_text": "Wave vs FreshBooks for solo freelancer" },
+    { "prompt_id": "p6", "chat_id": "c6", "model_id": "m_claude", "date": "2026-04-13", "query_text": "expense tracking app with no monthly fee" },
+    { "prompt_id": "p7", "chat_id": "c7", "model_id": "m_perplexity", "date": "2026-04-14", "query_text": "categorize receipts automatically with AI" },
+    { "prompt_id": "p8", "chat_id": "c8", "model_id": "m_gpt", "date": "2026-04-15", "query_text": "best app for tax write-offs as a contractor" }
+  ],
+  "url_report": [
+    {
+      "url": "https://www.waveapps.com/receipts",
+      "classification": "competitor",
+      "title": "Free Receipt Scanning — Wave",
+      "citation_count": 142,
+      "retrievals": 198,
+      "citation_rate": 0.72,
+      "mentioned_brand_ids": ["br_wave"]
+    },
+    {
+      "url": "https://quickbooks.intuit.com/self-employed/",
+      "classification": "competitor",
+      "title": "QuickBooks Self-Employed",
+      "citation_count": 188,
+      "retrievals": 252,
+      "citation_rate": 0.75,
+      "mentioned_brand_ids": ["br_quickbooks"]
+    },
+    {
+      "url": "https://www.reddit.com/r/freelance/comments/abc123",
+      "classification": "ugc",
+      "title": "What expense tracker do you actually use? — r/freelance",
+      "citation_count": 64,
+      "retrievals": 121,
+      "citation_rate": 0.53,
+      "mentioned_brand_ids": ["br_wave", "br_quickbooks", "br_freshbooks"]
+    },
+    {
+      "url": "https://www.nerdwallet.com/best/small-business/expense-tracker-apps",
+      "classification": "editorial",
+      "title": "Best Expense Tracker Apps of 2026 — NerdWallet",
+      "citation_count": 91,
+      "retrievals": 134,
+      "citation_rate": 0.68,
+      "mentioned_brand_ids": ["br_wave", "br_quickbooks", "br_freshbooks", "br_expensify"]
+    }
+  ],
+  "actions": [
+    {
+      "group_type": "owned_page",
+      "url_classification": "comparison",
+      "domain": "receiptly.lovable.app",
+      "opportunity_score": 0.93,
+      "relative_opportunity_score": 1.0,
+      "text": "Ship a 'Receiptly vs Wave vs QuickBooks' comparison block — the top 3 buyer queries are all comparison-shaped and we have zero comparison content."
+    },
+    {
+      "group_type": "owned_page",
+      "url_classification": "feature",
+      "domain": "receiptly.lovable.app",
+      "opportunity_score": 0.81,
+      "relative_opportunity_score": 0.87,
+      "text": "Lead the page with 'AI receipt scanner that exports to spreadsheet' — exact-match query with no current Receiptly visibility."
+    },
+    {
+      "group_type": "owned_page",
+      "url_classification": "pricing",
+      "domain": "receiptly.lovable.app",
+      "opportunity_score": 0.74,
+      "relative_opportunity_score": 0.80,
+      "text": "Make 'free, no monthly fee' a quotable bullet near the top — strong Peec signal that buyers ask LLMs about cost as a primary filter."
+    },
+    {
+      "group_type": "ugc",
+      "url_classification": "thread",
+      "domain": "reddit.com",
+      "opportunity_score": 0.61,
+      "relative_opportunity_score": 0.66,
+      "text": "Get 3-5 honest founder comments into r/freelance threads — UGC dominates LLM citations for this query class."
+    },
+    {
+      "group_type": "editorial",
+      "url_classification": "review",
+      "domain": "nerdwallet.com",
+      "opportunity_score": 0.55,
+      "relative_opportunity_score": 0.59,
+      "text": "Pitch NerdWallet's 'best expense tracker' roundup — currently 4 competitors listed, zero mention of Receiptly."
+    }
+  ]
+}

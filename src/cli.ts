@@ -8,23 +8,37 @@ import { PeecClient } from "./peec/client.js";
 import { scrape } from "./pipeline/scrape.js";
 import { diagnose } from "./pipeline/diagnose.js";
 import { strategize } from "./pipeline/strategize.js";
-import { rewrite } from "./pipeline/rewrite.js";
+import { rebuild } from "./pipeline/rebuild.js";
 import { unifiedDiff } from "./pipeline/diff.js";
+import { ingestRepo, ingestLocal, readEntryFiles, type RepoMeta } from "./pipeline/ingest.js";
+import { ship } from "./pipeline/ship.js";
 
 const program = new Command();
 
 program
   .name("ltseo")
-  .description("Lovable_To_SEO — the AI marketer for early-stage founders")
+  .description("Lovable_To_SEO — the AI marketer for early-stage Lovable founders")
   .version("0.1.0");
 
 program
   .command("run")
-  .description("Run the full pipeline against a single URL")
-  .argument("<url>", "URL to optimize (e.g. https://your-app.lovable.app)")
+  .description("Run the full pipeline against a Lovable repo and/or live URL")
+  .option("--repo <url>", "GitHub repo URL to clone (e.g. https://github.com/me/my-app)")
+  .option("--path <dir>", "Local repo path (use instead of --repo when iterating)")
+  .option("--url <url>", "Live URL to scrape for rendered content (auto-inferred from repo if omitted)")
   .option("--project-id <id>", "Peec AI project_id", process.env.PEEC_PROJECT_ID)
   .option("--out <dir>", "Output directory", "out")
-  .action(async (url: string, opts: { projectId?: string; out: string }) => {
+  .option("--branch <name>", "Branch name for the rebuild commit", "")
+  .option("--open-pr", "Push the branch and open a PR via gh", false)
+  .action(async (opts: {
+    repo?: string;
+    path?: string;
+    url?: string;
+    projectId?: string;
+    out: string;
+    branch: string;
+    openPr: boolean;
+  }) => {
     if (!opts.projectId) {
       console.error("error: --project-id <id> (or PEEC_PROJECT_ID env) is required");
       process.exit(1);
@@ -33,20 +47,46 @@ program
       console.error("error: ANTHROPIC_API_KEY env is required");
       process.exit(1);
     }
+    if (!opts.repo && !opts.path && !opts.url) {
+      console.error("error: provide at least one of --repo, --path, or --url");
+      process.exit(1);
+    }
 
     const runId = new Date().toISOString().replace(/[:.]/g, "-");
     const outDir = join(opts.out, runId);
     await mkdir(outDir, { recursive: true });
     const log = (msg: string) => console.log(`[ltseo] ${msg}`);
-
     log(`run ${runId} → ${outDir}`);
 
-    log("1/5 scraping page…");
-    const page = await scrape(url);
+    let repoMeta: RepoMeta | undefined;
+    if (opts.repo) {
+      log(`0/6 cloning ${opts.repo}…`);
+      repoMeta = await ingestRepo(opts.repo);
+    } else if (opts.path) {
+      log(`0/6 reading local repo ${opts.path}…`);
+      repoMeta = await ingestLocal(opts.path);
+    }
+    if (repoMeta) {
+      const sources = await readEntryFiles(repoMeta);
+      await writeFile(
+        join(outDir, "00-repo.json"),
+        JSON.stringify({ ...repoMeta, sources }, null, 2),
+      );
+      log(`     stack=${repoMeta.stack} entries=${repoMeta.entryFiles.length} url=${repoMeta.inferredUrl ?? "(none)"}`);
+    }
+
+    const targetUrl = opts.url ?? repoMeta?.inferredUrl;
+    if (!targetUrl) {
+      console.error("error: could not determine a live URL — pass --url");
+      process.exit(1);
+    }
+
+    log(`1/6 scraping ${targetUrl}…`);
+    const page = await scrape(targetUrl);
     await writeFile(join(outDir, "01-scrape.json"), JSON.stringify(page, null, 2));
     log(`     status=${page.status} h1=${page.h1.length} words=${page.wordCount}`);
 
-    log("2/5 diagnosing via Peec MCP…");
+    log("2/6 diagnosing via Peec MCP…");
     const peec = new PeecClient({
       mcpUrl: process.env.PEEC_MCP_URL ?? "https://api.peec.ai/mcp",
       oauthToken: process.env.PEEC_OAUTH_TOKEN,
@@ -62,31 +102,52 @@ program
 
     const claude = new ClaudeClient(process.env.ANTHROPIC_API_KEY);
 
-    log("3/5 strategizing…");
+    log("3/6 strategizing…");
     const brief = await strategize(claude, page, bundle);
     await writeFile(join(outDir, "03-brief.md"), brief);
 
-    log("4/5 rewriting page…");
-    const optimized = await rewrite(claude, page, brief);
-    await writeFile(join(outDir, "04-optimized.html"), optimized);
+    log("4/6 rebuilding site…");
+    const site = await rebuild(claude, page, brief, {
+      repo: repoMeta,
+      canonicalUrl: targetUrl,
+    });
+    log(`     site files: ${Object.keys(site.files).join(", ")}`);
 
-    log("5/5 diffing…");
-    const patch = unifiedDiff(page.rawHtml, optimized, "original.html", "optimized.html");
+    log("5/6 diffing…");
+    const patch = unifiedDiff(page.rawHtml, site.files["index.html"], "original.html", "optimized.html");
     await writeFile(join(outDir, "05-diff.patch"), patch);
+
+    log("6/6 shipping…");
+    const branch = opts.branch || `lovabletoseo/${runId}`;
+    const result = await ship(site, {
+      repo: repoMeta,
+      outDir,
+      branch,
+      runId,
+      openPr: opts.openPr,
+      prBody: brief,
+    });
+    if (result.prUrl) log(`     PR: ${result.prUrl}`);
+    else if (result.commitSha) log(`     committed ${result.commitSha.slice(0, 7)} on ${branch} (not pushed)`);
+    else log(`     wrote ${result.written.length} files to ${outDir}/site`);
 
     const report = [
       `# lovabletoseo run ${runId}`,
       "",
-      `- Source: ${url}`,
+      `- Source: ${targetUrl}`,
+      repoMeta?.remote ? `- Repo: ${repoMeta.remote}` : "",
       `- Peec project: ${opts.projectId}`,
       `- Brands tracked: ${bundle.brand_report.length}`,
       `- Buyer queries seen: ${bundle.search_queries.length}`,
       `- Actions surfaced: ${bundle.actions.length}`,
+      result.prUrl ? `- PR: ${result.prUrl}` : `- Branch: ${result.branch}`,
       "",
       "## Brief",
       "",
       brief,
-    ].join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
     await writeFile(join(outDir, "report.md"), report);
 
     log(`done. open ${join(outDir, "report.md")}`);
