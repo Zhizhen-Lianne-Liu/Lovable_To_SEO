@@ -43,7 +43,7 @@ A browser opens once, you log in to Peec, click Allow. The token persists in `.p
 ```bash
 python3 research/orchestrate.py \
   --domain attio.com \
-  --project-id or_c8e713b5-...
+  --project-id or_<your-project-id>
 ```
 
 The project must already exist in the Peec dashboard — Peec doesn't expose project creation via API.
