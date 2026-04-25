@@ -1,70 +1,50 @@
-# web/ — three landing page directions
+# web/ — three Lovable prompts
 
-Three standalone HTML mockups of the lovabletoseo.com landing page. Each is one self-contained file you can open directly in a browser. Pick one for the team to take into Lovable and iterate.
+Three different design directions, each as a single Lovable-ready prompt you can paste into a fresh project. The team picks one, generates the page in Lovable, and iterates from there.
 
-## How to preview
+## How to use
 
-```bash
-# Quickest — just open in a browser
-open web/v1-peec/index.html
-open web/v2-lovable/index.html
-open web/v3-seo-classic/index.html
-
-# Or run a tiny local server so all three can be compared
-python3 -m http.server 8000 --directory web
-# then visit http://localhost:8000/v1-peec/  etc.
-```
+1. Open [lovable.dev](https://lovable.dev) and start a new project.
+2. Open one of the three prompt files below.
+3. Copy the full markdown body (everything below the first `---` divider) and paste it as your first message in Lovable.
+4. Wait for the first generation, then iterate visually inside Lovable.
+5. Once the design feels right, point the Lovable repo at lovabletoseo.com.
 
 ## The three directions
 
 ### V1 — Peec-style (B&W, agentic, animated pipeline)
-- **Vibe:** clean white, deep black, monospace touches, lots of whitespace. Like Peec.ai or Linear.
-- **Hero animation:** an "agent" dot traveling along the 5-stage pipeline as you scroll, thinking-dots loaders during the scan.
-- **Tone:** technical, founder-to-founder, evidence-first.
-- **Best if:** judges and the Peec team are the audience. Most visually aligned with the track sponsor.
+**File:** [`v1-peec.md`](v1-peec.md)
+Pure black on white with a single mint accent. Monospace technical accents (file paths, endpoint names, slash-prefixed labels). Animated 5-stage pipeline with a small "agent" dot that travels through it. Visually agrees with peec.ai / linear.app / vercel.com.
+
+**Best when** the audience is the Peec sponsor team or technical founders. The pipeline animation literally tells the story we sell.
 
 ### V2 — Lovable-style (warm gradients, friendly)
-- **Vibe:** peach / pink / orange gradients, rounded everything, soft shadows. Like Lovable's own product surface.
-- **Hero animation:** friendly emoji-character agent doing tasks, soft pulsing on the input.
-- **Tone:** friendly, magic-feeling, low-jargon, minimal-emoji.
-- **Best if:** we want to feel like a sister product to Lovable so the founder reaches for us as the obvious next step.
+**File:** [`v2-lovable.md`](v2-lovable.md)
+Cream-peach background with pink/peach/apricot gradients. Rounded everything, soft shadows, friendly emoji-character agent. Feels like a sister product to Lovable — a Lovable founder lands here and instantly feels at home.
 
-### V3 — SEO-classic (old-school, content-heavy, dogfooded)
-- **Vibe:** serif body font, cream background, single column. Like Stripe Press, HN top posts, Pieter Levels.
-- **Hero:** the H1 is a real long-tail keyword target, the input is embedded in the prose.
-- **Animation:** none. The aesthetic is the credibility — "we don't need flashy because the page itself ranks".
-- **Tone:** in-depth, technical, evidence-led.
-- **Best if:** we want the landing page itself to demonstrate the GEO playbook — eats its own dogfood. Strong narrative for the demo.
+**Best when** acquisition is the goal post-hackathon. Lowest friction for a non-technical founder.
 
-## Common flow (all three)
+### V3 — Old-school SEO (content-heavy, dogfooded)
+**File:** [`v3-seo-classic.md`](v3-seo-classic.md)
+Cream paper, serif body, single column. Long-form essay format with a real long-tail H1. Inline JSON-LD blocks (`SoftwareApplication` + `FAQPage`). The prompt explicitly tells Lovable to apply our six GEO principles to this very page — it eats its own dogfood.
 
-1. Founder lands on page, sees one input: their domain (e.g. `myapp.lovable.app`).
-2. They submit. We show a 3-second scan with thinking-state animation.
-3. We reveal mocked scan results: SPA detection, missing meta/schema, Peec share-of-voice gap vs competitors.
-4. CTA: **Connect GitHub** to fix it. (In the mock this just shows the next-step modal; in production it's a GitHub OAuth handshake that hands the repo to the pipeline.)
-
-The "domain first, GitHub later" sequence is intentional — the founder gets the value-revealing diagnosis before being asked to authorize anything.
+**Best when** we want the strongest narrative for the demo. "Look — our own landing page already ranks because we follow the playbook we sell."
 
 ## Picking one
 
 Decision criteria, in order:
+
 1. **Which one a Lovable founder shows their cofounder unprompted?** Word-of-mouth is the only real distribution we have at hackathon scale.
-2. **Which one Peec sponsors are most likely to repost?** That's an extra distribution channel.
-3. **Which one is fastest to ship into Lovable?** All three are HTML/Tailwind-shaped; V1 and V2 should drop in cleanly. V3 uses vanilla CSS by design.
+2. **Which one Peec sponsors are most likely to repost?** That's an extra channel.
+3. **Which one is fastest to get demo-ready in Lovable?** All three are designed to be Lovable-natural. V2 is probably fastest because Lovable's defaults already lean this way.
 
-My take: **V1 is the safest demo bet** (visually aligned with the sponsor, pipeline animation literally explains what we do). **V3 is the most differentiated** (we're the only "AI marketer" tool whose own landing page would actually rank). **V2 is the strongest acquisition surface** (looks like the obvious next step for someone who just shipped on Lovable).
+My take:
+- **V1** is the safest demo bet — visually aligned with the sponsor, pipeline animation explains the product.
+- **V3** is the most differentiated — we're the only "AI marketer" tool whose own landing page would actually rank.
+- **V2** is the strongest acquisition surface — looks like the obvious next step for someone who just shipped on Lovable.
 
-## File structure
+If you can't pick: ship V1 for the demo, V3 for the long tail, V2 once acquisition is the bottleneck. They aren't mutually exclusive — they're three branches of the same content.
 
-```
-web/
-├── README.md                 ← this file
-├── v1-peec/
-│   └── index.html            ← single-file demo, Tailwind via CDN, vanilla JS
-├── v2-lovable/
-│   └── index.html            ← single-file demo, Tailwind via CDN, vanilla JS
-└── v3-seo-classic/
-    └── index.html            ← single-file demo, vanilla CSS, semantic HTML
-```
+## After Lovable generates the page
 
-Each file is fully self-contained. No build step, no install.
+The whole point of this product is fixing what Lovable ships. So: after Lovable generates the chosen direction, point lovabletoseo at its own repo and run the pipeline. Treat the resulting PR as the second artifact for the demo — proof that we use our own tool on our own page.
