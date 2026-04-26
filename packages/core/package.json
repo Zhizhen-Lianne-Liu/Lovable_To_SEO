@@ -13,6 +13,7 @@
     "start": "node dist/cli.js",
     "typecheck": "tsc --noEmit",
     "smoke:enrich": "tsx src/scripts/smoke-enrich.ts",
+    "smoke:codemods": "tsx src/scripts/smoke-codemods.ts",
     "validate:smoke": "tsx src/scripts/validate-smoke.ts"
   },
   "dependencies": {
