@@ -1,15 +1,19 @@
 {
   "name": "lovabletoseo",
-  "version": "0.1.0",
-  "description": "The AI marketer every early-stage Lovable founder needs. Convert your SPA to crawlable static HTML, then enhance with Peec-driven SEO + GEO.",
+  "version": "0.2.0",
+  "description": "The AI marketer for Lovable founders. Clone a Lovable repo, fix technical SEO, run Peec+Tavily intelligence, apply marketing skills, and PR back to GitHub.",
   "type": "module",
-  "bin": {
-    "ltseo": "./dist/cli.js"
-  },
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "build": "tsc",
     "dev": "tsx src/cli.ts",
-    "start": "node dist/cli.js",
+    "core:dev": "npm --workspace @lovabletoseo/core run dev",
+    "core:build": "npm --workspace @lovabletoseo/core run build",
+    "core:typecheck": "npm --workspace @lovabletoseo/core run typecheck",
+    "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

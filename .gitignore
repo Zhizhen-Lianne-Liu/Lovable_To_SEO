@@ -4,18 +4,22 @@ dist/
 .env.local
 out/
 *.log
+*.tsbuildinfo
 .DS_Store
 
-# Python (peec-onboarder + lovable_to_seo)
+# Pipeline output + caches
+runs/
+.cache/
+.peec_oauth.json
+**/.peec_oauth.json
+
+# Python (legacy — being ported to TS in P2)
 .venv/
 __pycache__/
 *.pyc
 *.egg-info/
-/src/lovable_to_seo.egg-info/
 peec-onboarder/data/
 
 # Secrets — never commit, anywhere in the tree
 **/.env
 **/.env.local
-.peec_oauth.json
-**/.peec_oauth.json
