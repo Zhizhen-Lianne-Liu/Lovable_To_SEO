@@ -84,7 +84,16 @@ GitHub repo URL (Lovable)
 │                     - vite-react: edit index.html shell          │
 │                     - tanstack-start: edit __root.tsx + write    │
 │                       src/lovabletoseo/meta.ts                   │
-│                     + write public/robots.txt + sitemap.xml ~1s  │
+│                     + write public/robots.txt + sitemap.xml      │
+│                     + (TanStack) generate src/routes/<path>.tsx  │
+│                       for every strategy.newPages item, with     │
+│                       per-page meta + FAQPage/Article/Comparison │
+│                       JSON-LD + a 4-10 row feature comparison    │
+│                       table (or 3-8 h2/p sections for guides)    │
+│                     + (TanStack) write src/lovabletoseo/nav.tsx  │
+│                       and inject <LovabletoseoNav /> into        │
+│                       RootShell so generated pages are reachable │
+│                       from a sub-footer on every page    ~5-15s  │
 ├──────────────────────────────────────────────────────────────────┤
 │ 13. Ship            Branch + commit + PR via gh CLI         ~5s  │
 ├──────────────────────────────────────────────────────────────────┤
@@ -699,16 +708,64 @@ Idempotency safety:
 - `public/sitemap.xml` — covers `/`, every strategy.perRoute non-`/`, every
   proposed `newPages`. `lastmod` refreshes day-over-day.
 
+### TanStack: actually building Stage 11's `newPages`
+
+When STRATEGY proposes new pages (`/vs/<competitor>`, `/guides/<topic>`,
+etc.) and the framework is TanStack Start, APPLY **generates real route
+files** for them — not just sitemap entries. Two more touch points:
+
+- **One LLM call per page** (Sonnet, ~$0.02 each) fills a
+  Zod-validated content schema — never free-form TSX. A fixed template
+  then renders the schema into a real `src/routes/<path>.tsx` file with:
+    - `createFileRoute("/<path>")` + `Route.head()` containing per-page
+      title, description, OG, Twitter, canonical, and JSON-LD
+    - For `/vs/<x>` and `/compare/<x>`: FAQPage + WebPage-with-comparison
+      JSON-LD, plus a 4–10-row feature comparison table with `winner: "us"
+      | "them" | "tie"` honesty (model is told to concede ties + losses,
+      not paper them over)
+    - For `/guides/<topic>`: Article + FAQPage JSON-LD, plus 3–8 H2/p
+      sections explicitly shaped to be quote-extractable by AI engines.
+      The fanout queries from Peec are passed in as targeting hints — the
+      generated content directly answers them.
+  Real artifact: [PR #3 on flowmetrics-landing-page](https://github.com/comodoc/flowmetrics-landing-page/pull/3)
+  — three full TanStack route files (140-145 lines each) for `/vs/klipfolio`,
+  `/vs/databox`, `/vs/cometly` with honest comparison rows like *"Is
+  Klipfolio better for agencies? — Yes, Klipfolio's agency plans include
+  white-labeling, which FlowMetrics does not currently offer."*
+
+- **Cross-linking sub-footer** is generated alongside. APPLY writes
+  `src/lovabletoseo/nav.tsx` exporting `<LovabletoseoNav />` (a discrete
+  bottom strip with `<Link>` elements to every generated page, grouped
+  by archetype) then injects an import + render block into
+  `__root.tsx`'s `RootShell` right before `<Scripts />`. Marker-managed:
+    ```tsx
+    {children}
+    {/* lovabletoseo:nav-start */}
+    <LovabletoseoNav />
+    {/* lovabletoseo:nav-end */}
+    <Scripts />
+    ```
+  Result: every generated page is reachable from any page on the site,
+  AI crawlers traversing internal links pick up the entire set, and the
+  founder's primary header in their homepage layout stays untouched.
+  Verified rendering on flowmetrics-landing-page: every page (homepage
+  + each comparison) emits the sub-footer with TanStack's `data-status="active"`
+  + `aria-current="page"` for the current route.
+
 ### What APPLY does NOT do
 
-- **No React component edits.** The strategy's per-component copy
-  recommendations (`hero`, `sections`, `cta`) appear in the report so the
-  founder can apply them in Lovable. Auto-editing JSX is considered too
-  risky for the round-trip preservation guarantee. Component-edits are a
-  v2 flag.
-- **No new page files.** Stage 11's `newPages` proposals (e.g.
-  `/vs/hubspot`) currently land as sitemap entries + report
-  recommendations. Generating actual route files is a v2 expansion.
+- **No React component edits to existing pages.** The strategy's
+  per-component copy recommendations (`hero`, `sections`, `cta`) appear
+  in the report so the founder can apply them in Lovable. Auto-editing
+  the founder's existing JSX is considered too risky for the round-trip
+  preservation guarantee. Component edits to *existing* pages are a v2
+  flag — *new* pages are fully generated (see above).
+- **Vite + React: no new page files generated.** Page generation is
+  TanStack-only in v1. Vite + React projects don't have a clean
+  filesystem-routing convention to target. The strategy's `newPages`
+  still land as sitemap entries + a "skipped, framework=vite-react"
+  reason in `apply.json` so the founder can hand-build them from
+  `strategy.json`.
 
 ---
 
@@ -895,6 +952,8 @@ FlowMetrics 0%, etc.) and the real PR diff from the flowmetrics run.
 | `packages/core/src/pipeline/14-report.ts` | Markdown brief used as PR body |
 | `packages/core/src/lovable/inject-meta.ts` | Vite+React `index.html` shell mutation (idempotent markers) |
 | `packages/core/src/lovable/inject-tanstack.ts` | TanStack Start `__root.tsx` + colocated `meta.ts` |
+| `packages/core/src/lovable/generate-pages-tanstack.ts` | TanStack route file generation (one Sonnet call per `newPages` item, fills a Zod schema, fixed TSX template renders to `src/routes/<path>.tsx` with full per-page meta + JSON-LD) |
+| `packages/core/src/lovable/inject-tanstack-nav.ts` | Cross-linking sub-footer: writes `src/lovabletoseo/nav.tsx`, injects `<LovabletoseoNav />` into `__root.tsx`'s `RootShell` between `{children}` and `<Scripts />` (marker-managed) |
 | `packages/core/src/lovable/files.ts` | robots.txt + sitemap.xml writers |
 
 ---
