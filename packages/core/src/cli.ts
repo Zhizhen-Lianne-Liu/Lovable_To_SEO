@@ -84,13 +84,25 @@ program
     const applyResult = await apply({ ctx, inventory, strategy: strategyResult });
     await write(ctx, "apply.json", applyResult);
 
+    // Generate the report BEFORE ship so we can use its content as the PR body.
+    // ship's outcome (branch + PR URL) is appended afterwards as a postscript.
+    const reportMd = await report({
+      ctx,
+      all: { inventory, auditResult, profileResult, discoverResult, keywordResult, promptSet, snapshot, strategyResult, applyResult },
+    });
+
+    let shipResult: Awaited<ReturnType<typeof ship>> | null = null;
     if (!opts.dryRun) {
-      const shipResult = await ship({ ctx, inventory, apply: applyResult });
+      shipResult = await ship({ ctx, inventory, apply: applyResult, reportMd });
       await write(ctx, "ship.json", shipResult);
     }
 
-    const reportMd = await report({ ctx, all: { inventory, auditResult, profileResult, discoverResult, keywordResult, promptSet, snapshot, strategyResult, applyResult } });
-    await writeFile(resolve(ctx.outDir, "report.md"), reportMd, "utf8");
+    const finalReport = shipResult?.prUrl
+      ? `${reportMd}\n\n---\n\n**PR opened:** ${shipResult.prUrl} (branch \`${shipResult.branch}\`, commit \`${shipResult.commitSha.slice(0, 7)}\`)\n`
+      : shipResult?.skipped
+        ? `${reportMd}\n\n---\n\n**Ship skipped:** ${shipResult.skipped}\n`
+        : reportMd;
+    await writeFile(resolve(ctx.outDir, "report.md"), finalReport, "utf8");
 
     console.log(`[lts] done → ${ctx.outDir}/report.md`);
   });
