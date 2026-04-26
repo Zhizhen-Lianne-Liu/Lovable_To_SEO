@@ -11,6 +11,7 @@ import {
 import { generateTanstackPages } from "../lovable/generate-pages-tanstack.js";
 import { injectMetaIntoIndexHtml } from "../lovable/inject-meta.js";
 import { injectTanstack } from "../lovable/inject-tanstack.js";
+import { defaultLabelForRoute, injectTanstackNav } from "../lovable/inject-tanstack-nav.js";
 import { type Inventory, type Profile, type RunContext } from "../types/index.js";
 import type { PeecSnapshot } from "./09-peec-snapshot.js";
 import type { StrategyResult } from "./11-strategy.js";
@@ -180,6 +181,23 @@ export async function apply(args: {
         console.log(
           `        + ${g.filePath} (${g.pageType}, route=${g.route})`,
         );
+      }
+
+      // Cross-link the generated pages from a sub-footer nav so they're
+      // discoverable from anywhere on the site. Edits __root.tsx with
+      // marker blocks; idempotent re-runs.
+      if (pages.generated.length > 0) {
+        const nav = await injectTanstackNav({
+          cloneDir,
+          brand: args.profile.name,
+          links: pages.generated.map((g) => {
+            const d = defaultLabelForRoute(g.route);
+            return { route: g.route, label: d.label, group: d.group };
+          }),
+        });
+        for (const f of nav.newFiles) if (!newFiles.includes(f)) newFiles.push(f);
+        for (const f of nav.changedFiles) if (!changedFiles.includes(f)) changedFiles.push(f);
+        for (const w of nav.warnings) skipped.push({ file: "(nav)", reason: w });
       }
     } catch (e) {
       skipped.push({
