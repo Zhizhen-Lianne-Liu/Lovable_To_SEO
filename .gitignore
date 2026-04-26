@@ -7,6 +7,17 @@ out/
 *.tsbuildinfo
 .DS_Store
 
+# Editor / agent workspace metadata (per-user, not shared)
+.claude/
+.vscode/
+.idea/
+
+# apps/landing primarily uses Bun (bun.lockb is committed); the npm
+# package-lock.json only appears if a contributor runs `npm install`
+# inside apps/landing. Don't commit it — would create a second source
+# of truth for the dep tree.
+apps/landing/package-lock.json
+
 # Pipeline output + caches
 runs/
 .cache/
