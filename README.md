@@ -1015,3 +1015,7 @@ Built on top of:
 - [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) — vendored marketing skills
 - [elnumae/toseo](https://github.com/elnumae/toseo) — vendored landing page
 - Lovable — the apps we make discoverable
+
+Built this weekend as a team at the [Big Berlin Hack](https://luma.com/bigberlinhack?tk=XT3KOJ).
+
+\#BuiltWithPeec
