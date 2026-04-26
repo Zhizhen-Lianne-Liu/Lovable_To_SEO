@@ -153,12 +153,16 @@ export async function report(args: {
     "",
     "## Top changes shipped",
     "",
-    apply?.changedFiles.length
-      ? apply.changedFiles.slice(0, 12).map((f) => `- modified \`${f}\``).join("\n")
-      : "_(none yet — APPLY stage runs after STRATEGY)_",
-    apply?.newFiles.length
-      ? "\n" + apply.newFiles.slice(0, 8).map((f) => `- created \`${f}\``).join("\n")
-      : "",
+    (() => {
+      const lines: string[] = [];
+      if (apply?.changedFiles.length) {
+        for (const f of apply.changedFiles.slice(0, 12)) lines.push(`- modified \`${f}\``);
+      }
+      if (apply?.newFiles.length) {
+        for (const f of apply.newFiles.slice(0, 8)) lines.push(`- created \`${f}\``);
+      }
+      return lines.length ? lines.join("\n") : "_(none — APPLY produced no changes)_";
+    })(),
     "",
     "## Caveats",
     "",

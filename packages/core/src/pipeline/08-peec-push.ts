@@ -104,7 +104,9 @@ export async function peecPush(args: {
     }
     try {
       const res = await createBrand({ name, domains: [domain], color }, opts);
-      created.push({ id: res.id, name: res.name, domain: res.domains[0] ?? domain });
+      // Peec sometimes omits `domains` from the create response — fall back
+      // to the domain we sent so we don't crash on res.domains[0].
+      created.push({ id: res.id, name: res.name, domain: res.domains?.[0] ?? domain });
     } catch (e) {
       console.warn(`          FAILED: ${(e as Error).message}`);
     }
