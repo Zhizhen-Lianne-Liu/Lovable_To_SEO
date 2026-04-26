@@ -6,7 +6,7 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/api"
   ],
   "scripts": {
     "dev": "npm --workspace @lovabletoseo/core run dev",
