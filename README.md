@@ -26,22 +26,6 @@ so the round-trip into Lovable stays clean. This pipeline solves all three.
 
 ---
 
-## Models
-
-The pipeline uses **Anthropic** and **Google DeepMind** models.
-
-| Stage | Google DeepMind | Anthropic | Why |
-|---|---|---|---|
-| Prerender (SPA → HTML) | Gemini 2.0 Flash | Claude Sonnet 4.6 | Code-based transformation |
-| Profile extraction | Gemini 2.0 Flash | Claude Sonnet 4.6 | Structured JSON extraction |
-| Competitor validation gate | Gemini 2.0 Flash | Claude Sonnet 4.6 | Simple verdict classification |
-| Prompt curator | Gemini 2.0 Pro | Claude Opus 4.7 | Category inference, needs reasoning |
-| Prompt sub-agents (×18 parallel) | Gemini 2.0 Flash | Claude Sonnet 4.6 | High-volume JSON generation |
-| Prompt aggregator | Gemini 2.0 Pro | Claude Opus 4.7 | Semantic deduplication |
-| Strategy (4 skills → directives) | Gemini 2.0 Pro | Claude Opus 4.7 | Highest-stakes structured output |
-
----
-
 ## The pipeline
 
 ```
