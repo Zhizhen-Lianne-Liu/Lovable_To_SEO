@@ -33,8 +33,19 @@ program
   .requiredOption("-r, --repo <url>", "GitHub repo URL")
   .option("-d, --domain <domain>", "Live domain (defaults to detection)")
   .option("--dry-run", "Skip Peec push + GitHub PR")
-  .action(async (opts: { repo: string; domain?: string; dryRun?: boolean }) => {
+  .option(
+    "--limit",
+    "Reduced-cost run that still exercises every stage. Caps competitors to 5, " +
+      "keywords/competitor to 10, top-keywords to 5, prompts/keyword to 2.",
+  )
+  .option("--no-prerender", "Skip the prerender stage (saves ~$0.05 + ~30s; APPLY still runs)")
+  .action(async (opts: { repo: string; domain?: string; dryRun?: boolean; limit?: boolean; prerender: boolean }) => {
     env(); // fail-fast on missing env
+
+    const isLimit = !!opts.limit;
+    const limits = isLimit
+      ? { finalCompetitors: 5, keywordLimit: 10, candidatePool: 20, topKeywords: 5, promptsPerKeyword: 2 }
+      : { finalCompetitors: 10, keywordLimit: 30, candidatePool: 60, topKeywords: 18, promptsPerKeyword: 4 };
 
     const ctx: RunContext = {
       jobId: randomUUID(),
@@ -43,7 +54,7 @@ program
       startedAt: new Date().toISOString(),
     };
     await mkdir(ctx.outDir, { recursive: true });
-    console.log(`[lts] job ${ctx.jobId} → ${ctx.outDir}`);
+    console.log(`[lts] job ${ctx.jobId} → ${ctx.outDir}${isLimit ? "  [--limit mode]" : ""}`);
 
     const inventory = await ingest({ ctx });
     await write(ctx, "inventory.json", inventory);
@@ -51,20 +62,39 @@ program
     const auditResult = await audit({ ctx, inventory });
     await write(ctx, "audit.json", auditResult);
 
-    const prerendered = await prerender({ ctx, inventory });
-    await write(ctx, "prerender.json", prerendered);
+    if (opts.prerender !== false) {
+      const prerendered = await prerender({ ctx, inventory });
+      await write(ctx, "prerender.json", prerendered);
+    } else {
+      console.log("[prerender] skipped (--no-prerender)");
+    }
 
     const domain = opts.domain ?? deriveDomain(inventory);
     const profileResult = await profile({ ctx, domain });
     await write(ctx, "profile.json", profileResult);
 
     const discoverResult = await discover({ ctx, domain, profile: profileResult });
+    // Trim competitors before they fan out into Keywords + Peec push.
+    discoverResult.final = discoverResult.final.slice(0, limits.finalCompetitors);
     await write(ctx, "discover.json", discoverResult);
 
-    const keywordResult = await keywords({ ctx, competitors: discoverResult.final.map((c) => c.domain) });
+    const keywordResult = await keywords({
+      ctx,
+      competitors: discoverResult.final.map((c) => c.domain),
+      opts: { keywordLimit: limits.keywordLimit },
+    });
     await write(ctx, "keywords.json", keywordResult);
 
-    const promptSet = await prompts({ ctx, keywords: keywordResult, profile: profileResult });
+    const promptSet = await prompts({
+      ctx,
+      keywords: keywordResult,
+      profile: profileResult,
+      opts: {
+        candidatePool: limits.candidatePool,
+        topKeywords: limits.topKeywords,
+        promptsPerKeyword: limits.promptsPerKeyword,
+      },
+    });
     await write(ctx, "prompts.json", promptSet);
 
     if (!opts.dryRun) {

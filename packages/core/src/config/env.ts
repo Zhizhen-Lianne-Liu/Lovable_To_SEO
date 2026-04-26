@@ -3,9 +3,23 @@ import { z } from "zod";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-for (const file of [".env.local", ".env"]) {
-  const path = resolve(process.cwd(), file);
-  if (existsSync(path)) loadDotenv({ path, override: false });
+// .env wins over the shell — so an accidentally-empty ANTHROPIC_API_KEY in
+// the shell can't shadow a real value in the file. Walk up from cwd a few
+// levels in case we're invoked from a workspace subdir (packages/core/...).
+function findEnvFile(filename: string): string | null {
+  let dir = process.cwd();
+  for (let i = 0; i < 4; i++) {
+    const path = resolve(dir, filename);
+    if (existsSync(path)) return path;
+    const parent = resolve(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+for (const file of [".env", ".env.local"]) {
+  const path = findEnvFile(file);
+  if (path) loadDotenv({ path, override: true });
 }
 
 const Schema = z.object({
