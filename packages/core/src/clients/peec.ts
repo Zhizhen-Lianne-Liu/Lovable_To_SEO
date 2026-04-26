@@ -175,6 +175,184 @@ export async function deletePrompt(
 }
 
 // =============================================================================
+// Models, chats, reports, queries (snapshot stage)
+// =============================================================================
+
+export type PeecModel = {
+  id: string;
+  name: string;
+  is_active: boolean;
+  provider?: string;
+};
+
+export async function listModels(opts: { projectId?: string } = {}): Promise<PeecModel[]> {
+  const res = await peecFetch("GET", "/models", {
+    query: { project_id: projectId(opts.projectId) },
+  });
+  const json = await readJsonOrThrow<{ data: PeecModel[] }>(res, "listModels");
+  return json.data ?? [];
+}
+
+export async function listChats(args: {
+  projectId?: string;
+  start: string;
+  end: string;
+  limit?: number;
+}): Promise<Array<Record<string, unknown>>> {
+  const res = await peecFetch("GET", "/chats", {
+    query: {
+      project_id: projectId(args.projectId),
+      start_date: args.start,
+      end_date: args.end,
+      limit: args.limit ?? 10000,
+    },
+  });
+  const json = await readJsonOrThrow<{ data: Array<Record<string, unknown>> }>(res, "listChats");
+  return json.data ?? [];
+}
+
+export async function getChatContent(args: {
+  projectId?: string;
+  chatId: string;
+}): Promise<Record<string, unknown>> {
+  const res = await peecFetch("GET", `/chats/${args.chatId}/content`, {
+    query: { project_id: projectId(args.projectId) },
+  });
+  return readJsonOrThrow<Record<string, unknown>>(res, "getChatContent");
+}
+
+export type ReportFilter = {
+  field: string;
+  operator: string;
+  value: number | string | boolean;
+};
+
+export async function getBrandReport(args: {
+  projectId?: string;
+  start: string;
+  end: string;
+  dimensions?: string[];
+  filters?: ReportFilter[];
+  limit?: number;
+}): Promise<Array<Record<string, unknown>>> {
+  const body: Record<string, unknown> = {
+    start_date: args.start,
+    end_date: args.end,
+    limit: args.limit ?? 10000,
+  };
+  if (args.dimensions) body.dimensions = args.dimensions;
+  if (args.filters) body.filters = args.filters;
+  const res = await peecFetch("POST", "/reports/brands", {
+    query: { project_id: projectId(args.projectId) },
+    body,
+  });
+  const json = await readJsonOrThrow<{ data: Array<Record<string, unknown>> }>(res, "getBrandReport");
+  return json.data ?? [];
+}
+
+export async function getDomainReport(args: {
+  projectId?: string;
+  start: string;
+  end: string;
+  gapOnly?: boolean;
+  limit?: number;
+}): Promise<Array<Record<string, unknown>>> {
+  const body: Record<string, unknown> = {
+    start_date: args.start,
+    end_date: args.end,
+    limit: args.limit ?? 200,
+    order_by: [{ field: "citation_count", direction: "desc" }],
+  };
+  if (args.gapOnly) body.filters = [{ field: "gap", operator: "gte", value: 1 }];
+  const res = await peecFetch("POST", "/reports/domains", {
+    query: { project_id: projectId(args.projectId) },
+    body,
+  });
+  const json = await readJsonOrThrow<{ data: Array<Record<string, unknown>> }>(res, "getDomainReport");
+  return json.data ?? [];
+}
+
+export async function getUrlReport(args: {
+  projectId?: string;
+  start: string;
+  end: string;
+  gapOnly?: boolean;
+  limit?: number;
+}): Promise<Array<Record<string, unknown>>> {
+  const body: Record<string, unknown> = {
+    start_date: args.start,
+    end_date: args.end,
+    limit: args.limit ?? 200,
+    order_by: [{ field: "retrieval_count", direction: "desc" }],
+  };
+  if (args.gapOnly) body.filters = [{ field: "gap", operator: "gte", value: 1 }];
+  const res = await peecFetch("POST", "/reports/urls", {
+    query: { project_id: projectId(args.projectId) },
+    body,
+  });
+  const json = await readJsonOrThrow<{ data: Array<Record<string, unknown>> }>(res, "getUrlReport");
+  return json.data ?? [];
+}
+
+export async function getActions(args: {
+  projectId?: string;
+  scope: string;
+  url_classification?: string;
+  domain?: string;
+}): Promise<Array<Record<string, unknown>>> {
+  const body: Record<string, unknown> = { scope: args.scope };
+  if (args.url_classification) body.url_classification = args.url_classification;
+  if (args.domain) body.domain = args.domain;
+  const res = await peecFetch("POST", "/actions", {
+    query: { project_id: projectId(args.projectId) },
+    body,
+  });
+  // Public REST endpoint returns 404 unless MCP-elevated auth — degrade gracefully.
+  if (res.status === 404) return [];
+  const json = await readJsonOrThrow<{ data?: Array<Record<string, unknown>> }>(res, "getActions");
+  return json.data ?? [];
+}
+
+export async function getUrlContent(args: {
+  projectId?: string;
+  url: string;
+}): Promise<Record<string, unknown>> {
+  const res = await peecFetch("POST", "/sources/urls/content", {
+    query: { project_id: projectId(args.projectId) },
+    body: { url: args.url },
+  });
+  return readJsonOrThrow<Record<string, unknown>>(res, "getUrlContent");
+}
+
+export async function getSearchQueries(args: {
+  projectId?: string;
+  start: string;
+  end: string;
+  limit?: number;
+}): Promise<Array<Record<string, unknown>>> {
+  const res = await peecFetch("POST", "/queries/search", {
+    query: { project_id: projectId(args.projectId) },
+    body: { start_date: args.start, end_date: args.end, limit: args.limit ?? 500 },
+  });
+  const json = await readJsonOrThrow<{ data?: Array<Record<string, unknown>> }>(res, "getSearchQueries");
+  return json.data ?? [];
+}
+
+export async function getShoppingQueries(args: {
+  projectId?: string;
+  start: string;
+  end: string;
+  limit?: number;
+}): Promise<Array<Record<string, unknown>>> {
+  const res = await peecFetch("POST", "/queries/shopping", {
+    query: { project_id: projectId(args.projectId) },
+    body: { start_date: args.start, end_date: args.end, limit: args.limit ?? 500 },
+  });
+  const json = await readJsonOrThrow<{ data?: Array<Record<string, unknown>> }>(res, "getShoppingQueries");
+  return json.data ?? [];
+}
+
+// =============================================================================
 // Constants used by the push stage
 // =============================================================================
 
