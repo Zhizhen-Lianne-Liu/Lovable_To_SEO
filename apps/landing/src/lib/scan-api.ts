@@ -18,9 +18,27 @@ export type ScanResult = {
   share_of_voice?: Array<{ name: string; pct: number }>;
   fanout_queries?: string[];
   diff?: string;
-  files_changed?: string[];
+  // Backward-compatible: either bare strings (older runs) or richer objects
+  // with additions + status (newer baked + live runs).
+  files_changed?: Array<string | FileChange>;
   pr?: { url: string; branch: string; commit: string };
 };
+
+export type FileChange = {
+  path: string;
+  additions: number;
+  status: "added" | "modified";
+  description?: string;
+};
+
+export function normalizeFiles(files: ScanResult["files_changed"]): FileChange[] {
+  if (!files) return [];
+  return files.map((f) =>
+    typeof f === "string"
+      ? { path: f, additions: 0, status: "added" as const }
+      : f,
+  );
+}
 
 export async function scan(url: string): Promise<ScanResult> {
   const res = await fetch("/api/scan", {
