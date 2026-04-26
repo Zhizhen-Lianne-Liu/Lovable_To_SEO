@@ -16,7 +16,24 @@ const CLI_PATH = resolve(REPO_ROOT, "packages", "core", "src", "cli.ts");
 
 const app = new Hono();
 
-app.use("/*", cors({ origin: ["http://localhost:5173", "http://localhost:8788"] }));
+// Permissive CORS for any localhost origin — the landing's vite-tanstack-config
+// can land on 5173 / 8080 / 8081 / etc. depending on what's free, and we want
+// it to "just work" in dev. Tighten before deploying.
+app.use(
+  "/*",
+  cors({
+    origin: (origin) => {
+      if (!origin) return origin;
+      try {
+        const u = new URL(origin);
+        if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return origin;
+      } catch {
+        /* not a URL */
+      }
+      return null;
+    },
+  }),
+);
 
 app.get("/api/health", (c) =>
   c.json({ ok: true, mode: "baked-for-flowmetrics + live-pipeline-for-other" }),
