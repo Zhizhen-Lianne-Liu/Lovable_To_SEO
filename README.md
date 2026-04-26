@@ -828,8 +828,8 @@ authenticated or push is denied, SHIP downgrades to a "skipped" reason in
 ### 1. Install
 
 ```bash
-git clone https://github.com/Zhizhen-Lianne-Liu/Lovable_To_SEO
-cd Lovable_To_SEO
+git clone https://github.com/serg0x/peec-lovable-seo-geo
+cd peec-lovable-seo-geo
 npm install                # installs packages/core + apps/api workspaces
 cp .env.example .env       # fill in your keys
 ```
@@ -1016,6 +1016,6 @@ Built on top of:
 - [elnumae/toseo](https://github.com/elnumae/toseo) — vendored landing page
 - Lovable — the apps we make discoverable
 
-Built this weekend as a team at the [Big Berlin Hack](https://luma.com/bigberlinhack?tk=XT3KOJ).
+Built this weekend at the [Big Berlin Hack](https://luma.com/bigberlinhack?tk=XT3KOJ).
 
 \#BuiltWithPeec
