@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { ChangesShipped } from "./ChangesShipped";
+import { FanoutQueries } from "./FanoutQueries";
 import { GithubModal } from "./GithubModal";
+import { SovBars } from "./SovBars";
 import type { ScanResult } from "@/lib/scan-api";
 
 function Counter({ to, suffix = "", duration = 1200 }: { to: number; suffix?: string; duration?: number }) {
@@ -83,7 +86,19 @@ export function Diagnosis({ domain, result }: { domain: string; result: ScanResu
         />
       </div>
 
-      <div className="mt-8 border hairline bg-paper p-8">
+      {result.share_of_voice && result.share_of_voice.length > 0 && (
+        <SovBars domain={domain} share={result.share_of_voice} />
+      )}
+
+      {result.fanout_queries && result.fanout_queries.length > 0 && (
+        <FanoutQueries queries={result.fanout_queries} />
+      )}
+
+      {result.files_changed && result.files_changed.length > 0 && (
+        <ChangesShipped result={result} />
+      )}
+
+      <div className="mt-12 border hairline bg-paper p-8">
         <p className="font-mono-tag text-ink/70">/ NEXT STEP</p>
         <h3 className="font-display mt-3 text-2xl sm:text-3xl">Connect GitHub. We open a PR.</h3>
         <p className="mt-4 max-w-2xl text-ink/75 leading-relaxed">

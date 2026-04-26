@@ -1,5 +1,5 @@
 {
-  "_source": "Real run on https://github.com/comodoc/flowmetrics-landing-page (April 2026), pushed to Peec project test3 (or_7718dbbc-...). Snapshot captured ~1h after push at 100% coverage. Diff is from PR #2 — the substantive run with TanStack Start in-stack injection.",
+  "_source": "Real run on https://github.com/comodoc/flowmetrics-landing-page (April 2026), pushed to Peec project test3 (or_7718dbbc-...). Snapshot captured ~1h after push at 100% coverage. Files + PR are from PR #3 — the run with TanStack Start in-stack injection + 3 generated /vs/<x> comparison pages + cross-linking sub-footer nav.",
   "domain": "flowmetricsorg.lovable.app",
   "framework": "tanstack-start",
   "isLovable": true,
@@ -36,10 +36,19 @@
     "common marketing performance indicators 2025 2026"
   ],
   "diff": "diff --git a/src/routes/__root.tsx b/src/routes/__root.tsx\n--- a/src/routes/__root.tsx\n+++ b/src/routes/__root.tsx\n@@\n import { Outlet, Link, createRootRoute, HeadContent, Scripts } from \"@tanstack/react-router\";\n import appCss from \"../styles.css?url\";\n+/* lovabletoseo:import-start */\n+import { lovabletoseoMeta, lovabletoseoLinks, lovabletoseoScripts } from \"@/lovabletoseo/meta\";\n+/* lovabletoseo:import-end */\n@@ export const Route = createRootRoute({\n     meta: [\n       { name: \"twitter:description\", content: \"FlowMetrics landing page showcases a SaaS analytics tool for B2B marketing teams.\" },\n+      // lovabletoseo:start\n+      ...lovabletoseoMeta,\n+      // lovabletoseo:end\n     ],\n     links: [\n       { rel: \"stylesheet\", href: appCss },\n+      // lovabletoseo:start\n+      ...lovabletoseoLinks,\n+      // lovabletoseo:end\n+    ],\n+    scripts: [\n+      // lovabletoseo:start\n+      ...lovabletoseoScripts,\n+      // lovabletoseo:end\n     ],\n   }),\n\ndiff --git a/src/lovabletoseo/meta.ts b/src/lovabletoseo/meta.ts\nnew file mode 100644\n--- /dev/null\n+++ b/src/lovabletoseo/meta.ts\n@@\n+// lovabletoseo:managed — AUTO-GENERATED. Edit the strategy + re-run.\n+export const lovabletoseoMeta = [\n+  { title: \"FlowMetrics — B2B Marketing Analytics Dashboard with AI Insights\" },\n+  { name: \"description\", content: \"Real-time B2B marketing analytics dashboard with AI anomaly detection, drag-and-drop reports, and sub-second refresh. 14-day free trial, no credit card.\" },\n+  { property: \"og:title\", content: \"FlowMetrics — B2B Marketing Analytics Dashboard with AI Insights\" },\n+  { property: \"og:url\", content: \"https://flowmetrics-landing-page.lovable.app\" },\n+  { name: \"twitter:card\", content: \"summary_large_image\" },\n+  /* …og + twitter set …*/\n+];\n+export const lovabletoseoLinks = [\n+  { rel: \"canonical\", href: \"https://flowmetrics-landing-page.lovable.app\" },\n+];\n+export const lovabletoseoScripts = [\n+  // Organization JSON-LD: name, slogan, knowsAbout, foundingDate\n+  // WebSite JSON-LD\n+  // SoftwareApplication JSON-LD: featureList + Offer (14-day trial)\n+  // FAQPage JSON-LD: 6 Q&As (\"What is FlowMetrics?\", \"Who is it for?\", \"vs Klipfolio/Databox/Cyfe?\", …)\n+  // WebPage JSON-LD\n+];\n\ndiff --git a/public/robots.txt b/public/robots.txt\n+# lovabletoseo:managed\n+User-agent: *\n+Allow: /\n+Sitemap: https://flowmetrics-landing-page.lovable.app/sitemap.xml\n\ndiff --git a/public/sitemap.xml b/public/sitemap.xml\n+<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n+<urlset>\n+  <url><loc>https://flowmetrics-landing-page.lovable.app/</loc><priority>1</priority></url>\n+  <url><loc>https://flowmetrics-landing-page.lovable.app/compare/klipfolio</loc></url>\n+  <url><loc>https://flowmetrics-landing-page.lovable.app/compare/databox</loc></url>\n+  <url><loc>https://flowmetrics-landing-page.lovable.app/guides/b2b-marketing-kpis</loc></url>\n+</urlset>",
-  "files_changed": ["src/routes/__root.tsx", "src/lovabletoseo/meta.ts", "public/robots.txt", "public/sitemap.xml"],
+  "files_changed": [
+    { "path": "src/routes/__root.tsx", "additions": 20, "status": "modified", "description": "TanStack head() injection: spreads our meta/links/scripts into the root route + renders <LovabletoseoNav />" },
+    { "path": "src/lovabletoseo/meta.ts", "additions": 71, "status": "added", "description": "Site-wide title, description, OG, Twitter, canonical + 5 JSON-LD blocks (Organization, WebSite, SoftwareApplication, FAQPage, WebPage)" },
+    { "path": "src/lovabletoseo/nav.tsx", "additions": 38, "status": "added", "description": "<LovabletoseoNav /> sub-footer linking the 3 generated comparison pages" },
+    { "path": "src/routes/vs/klipfolio.tsx", "additions": 145, "status": "added", "description": "FlowMetrics vs Klipfolio comparison page with FAQPage + comparison JSON-LD" },
+    { "path": "src/routes/vs/databox.tsx", "additions": 140, "status": "added", "description": "FlowMetrics vs Databox comparison page" },
+    { "path": "src/routes/vs/cometly.tsx", "additions": 140, "status": "added", "description": "FlowMetrics vs Cometly comparison page" },
+    { "path": "public/sitemap.xml", "additions": 40, "status": "added", "description": "Lists all 6 routes including the new /vs/<x> pages" },
+    { "path": "public/robots.txt", "additions": 5, "status": "added", "description": "User-agent: * / Allow: / / Sitemap pointer" }
+  ],
   "pr": {
-    "url": "https://github.com/comodoc/flowmetrics-landing-page/pull/2",
-    "branch": "lovabletoseo/6e5cf275",
-    "commit": "c877e61"
+    "url": "https://github.com/comodoc/flowmetrics-landing-page/pull/3",
+    "branch": "lovabletoseo/4e4b6176",
+    "commit": "ac159ce"
   }
 }
