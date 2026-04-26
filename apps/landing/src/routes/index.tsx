@@ -8,6 +8,7 @@ import { PrDiff } from "@/components/site/PrDiff";
 import { Faq } from "@/components/site/Faq";
 import { FinalCta } from "@/components/site/FinalCta";
 import { Footer } from "@/components/site/Footer";
+import { ScanProvider } from "@/lib/scan-context";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,17 +31,19 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   return (
-    <div className="min-h-screen bg-paper text-ink">
-      <Header />
-      <main>
-        <Hero />
-        <Pipeline />
-        <WhyThisWorks />
-        <PrDiff />
-        <Faq />
-        <FinalCta />
-      </main>
-      <Footer />
-    </div>
+    <ScanProvider>
+      <div className="min-h-screen bg-paper text-ink">
+        <Header />
+        <main>
+          <Hero />
+          <Pipeline />
+          <WhyThisWorks />
+          <PrDiff />
+          <Faq />
+          <FinalCta />
+        </main>
+        <Footer />
+      </div>
+    </ScanProvider>
   );
 }

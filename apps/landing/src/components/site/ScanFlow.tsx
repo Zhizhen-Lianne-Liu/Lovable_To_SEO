@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Diagnosis } from "./Diagnosis";
-import type { ScanResult } from "@/lib/scan-api";
+import { useScan } from "@/lib/scan-context";
 
 const STEPS = [
   "Cloning the Lovable repo…",
@@ -10,7 +10,8 @@ const STEPS = [
   "Comparing to top-cited competitor pages…",
 ];
 
-export function ScanFlow({ domain, result }: { domain: string; result: ScanResult | null }) {
+export function ScanFlow() {
+  const { scanning, result } = useScan();
   const [done, setDone] = useState(0);
   const [animationComplete, setAnimationComplete] = useState(false);
 
@@ -26,13 +27,13 @@ export function ScanFlow({ domain, result }: { domain: string; result: ScanResul
   // Reveal Diagnosis only when BOTH the animation has played out AND the
   // backend has returned. This way fast networks don't skip the animation
   // and slow networks wait visibly instead of showing stale tiles.
-  const showDiagnosis = animationComplete && result != null;
+  const showDiagnosis = animationComplete && result != null && scanning != null;
 
   return (
     <section id="scan" className="mx-auto max-w-6xl px-6 pb-20">
       <div className="border hairline bg-paper p-8 fade-up">
         <p className="font-mono-tag text-ink/70">
-          / SCANNING <span className="text-ink">{domain}</span>
+          / SCANNING <span className="text-ink">{scanning}</span>
         </p>
         <ul className="mt-6 space-y-4 font-mono text-sm">
           {STEPS.map((step, i) => {
@@ -69,7 +70,9 @@ export function ScanFlow({ domain, result }: { domain: string; result: ScanResul
         </ul>
       </div>
 
-      {showDiagnosis && <Diagnosis domain={domain} result={result} />}
+      {showDiagnosis && scanning != null && result != null && (
+        <Diagnosis domain={scanning} result={result} />
+      )}
     </section>
   );
 }

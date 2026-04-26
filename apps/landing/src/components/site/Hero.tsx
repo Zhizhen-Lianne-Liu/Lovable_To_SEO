@@ -1,28 +1,18 @@
 import { useState } from "react";
 import { ScanFlow } from "./ScanFlow";
-import { scan, type ScanResult } from "@/lib/scan-api";
+import { useScan } from "@/lib/scan-context";
 
 export function Hero() {
   const [domain, setDomain] = useState("");
-  const [scanning, setScanning] = useState<string | null>(null);
-  const [result, setResult] = useState<ScanResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { scan, scanning, error } = useScan();
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const d = domain.trim() || "receiptly.lovable.app";
-    setScanning(d);
-    setResult(null);
-    setError(null);
     setTimeout(() => {
       document.getElementById("scan")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 80);
-    try {
-      const r = await scan(d);
-      setResult(r);
-    } catch (e) {
-      setError((e as Error).message);
-    }
+    await scan(d);
   };
 
   return (
@@ -73,7 +63,7 @@ export function Hero() {
         </form>
       </section>
 
-      {scanning && <ScanFlow key={scanning} domain={scanning} result={result} />}
+      {scanning && <ScanFlow key={scanning} />}
     </>
   );
 }
