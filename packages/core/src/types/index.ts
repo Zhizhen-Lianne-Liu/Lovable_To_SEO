@@ -22,24 +22,45 @@ export type Profile = z.infer<typeof Profile>;
 export const Competitor = z.object({
   domain: z.string(),
   name: z.string(),
+  canonical_name: z.string().optional(),
   description: z.string().optional(),
+  why_relevant: z.string().optional(),
   votes: z.number().int().nonnegative().optional(),
-  validated: z.boolean().optional(),
+  approaches: z.array(z.string()).optional(),
+  channels: z.array(z.string()).optional(),
+  score: z.number().optional(),
+  validated: z.boolean().nullable().optional(),
+  validation_reason: z.string().optional(),
 });
 export type Competitor = z.infer<typeof Competitor>;
 
+export const SelfProfile = z.object({
+  domain: z.string(),
+  name_guess: z.string(),
+  raw_excerpt: z.string(),
+});
+export type SelfProfile = z.infer<typeof SelfProfile>;
+
 export const DiscoverResult = z.object({
   input: z.string(),
-  self: z.object({
-    domain: z.string(),
-    name_guess: z.string().optional(),
-    raw_excerpt: z.string().optional(),
-  }),
+  self: SelfProfile,
   deep_profile: Profile.nullable(),
   approaches: z.object({
-    A_research: z.object({ competitors: z.array(Competitor) }),
-    B_cooccur: z.object({ competitors: z.array(Competitor) }),
-    C_answer: z.object({ competitors: z.array(Competitor) }),
+    A_research: z.object({
+      competitors: z.array(Competitor),
+      sources: z.array(z.unknown()).optional(),
+      error: z.string().optional(),
+    }),
+    B_cooccur: z.object({
+      competitors: z.array(Competitor),
+      raw_answers: z.record(z.string()).optional(),
+      error: z.string().optional(),
+    }),
+    C_answer: z.object({
+      competitors: z.array(Competitor),
+      raw_answer: z.string().optional(),
+      error: z.string().optional(),
+    }),
   }),
   raw_consensus: z.array(Competitor),
   final: z.array(Competitor),

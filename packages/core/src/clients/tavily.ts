@@ -23,18 +23,26 @@ export type TavilySearchResponse = {
 export async function tavilyExtract(args: {
   urls: string[];
   format?: "markdown" | "text";
+  query?: string;
+  chunks_per_source?: number;
   timeoutMs?: number;
 }): Promise<TavilyExtractItem[]> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), args.timeoutMs ?? 120_000);
   try {
+    const body: Record<string, unknown> = {
+      urls: args.urls,
+      format: args.format ?? "markdown",
+    };
+    if (args.query) body.query = args.query;
+    if (args.chunks_per_source !== undefined) body.chunks_per_source = args.chunks_per_source;
     const r = await fetch(`${TAVILY_API}/extract`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${env().TAVILY_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ urls: args.urls, format: args.format ?? "markdown" }),
+      body: JSON.stringify(body),
       signal: ctrl.signal,
     });
     if (!r.ok) {
@@ -104,46 +112,53 @@ export async function tavilySearch(args: {
   }
 }
 
-export type TavilyResearchSubmit = { request_id: string };
-export type TavilyResearchPoll =
-  | { status: "pending" | "in_progress" }
-  | { status: "completed"; result: unknown }
-  | { status: "failed"; error?: string };
+export type TavilyResearchBody = {
+  status: "pending" | "in_progress" | "completed" | "failed";
+  request_id?: string;
+  content?: string | Record<string, unknown>;
+  sources?: Array<{ url?: string; title?: string }>;
+  error?: string;
+};
 
-export async function tavilyResearchSubmit(args: {
-  query: string;
-  output_schema?: Record<string, unknown>;
-  timeoutMs?: number;
-}): Promise<TavilyResearchSubmit> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), args.timeoutMs ?? 60_000);
-  try {
-    const r = await fetch(`${TAVILY_API}/research`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env().TAVILY_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query: args.query, output_schema: args.output_schema }),
-      signal: ctrl.signal,
-    });
-    if (!r.ok) {
-      const body = await r.text().catch(() => "");
-      throw new Error(`Tavily research submit ${r.status}: ${body.slice(0, 200)}`);
-    }
-    return (await r.json()) as TavilyResearchSubmit;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-export async function tavilyResearchPoll(requestId: string): Promise<TavilyResearchPoll> {
-  const r = await fetch(`${TAVILY_API}/research/${requestId}`, {
-    headers: { Authorization: `Bearer ${env().TAVILY_API_KEY}` },
+export async function tavilyResearch(args: {
+  question: string;
+  output_schema: Record<string, unknown>;
+  model?: "auto" | "mini";
+  pollIntervalMs?: number;
+  deadlineMs?: number;
+}): Promise<TavilyResearchBody> {
+  const submit = await fetch(`${TAVILY_API}/research`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env().TAVILY_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      input: args.question,
+      model: args.model ?? "auto",
+      output_schema: args.output_schema,
+    }),
   });
-  if (!r.ok) {
-    const body = await r.text().catch(() => "");
-    throw new Error(`Tavily research poll ${r.status}: ${body.slice(0, 200)}`);
+  if (!submit.ok) {
+    const body = await submit.text().catch(() => "");
+    throw new Error(`Tavily research submit ${submit.status}: ${body.slice(0, 200)}`);
   }
-  return (await r.json()) as TavilyResearchPoll;
+  const submitBody = (await submit.json()) as { request_id: string };
+  const requestId = submitBody.request_id;
+
+  const interval = args.pollIntervalMs ?? 5_000;
+  const deadline = Date.now() + (args.deadlineMs ?? 300_000);
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, interval));
+    const poll = await fetch(`${TAVILY_API}/research/${requestId}`, {
+      headers: { Authorization: `Bearer ${env().TAVILY_API_KEY}` },
+    });
+    if (!poll.ok) {
+      const body = await poll.text().catch(() => "");
+      throw new Error(`Tavily research poll ${poll.status}: ${body.slice(0, 200)}`);
+    }
+    const body = (await poll.json()) as TavilyResearchBody;
+    if (body.status === "completed" || body.status === "failed") return body;
+  }
+  throw new Error("Tavily /research polling exceeded 5 min");
 }
