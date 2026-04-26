@@ -1,7 +1,0 @@
-.env
-node_modules
-/tmp
-.cache
-dist
-*.log
-.DS_Store

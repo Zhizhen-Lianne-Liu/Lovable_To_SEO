@@ -132,10 +132,19 @@ export const PromptSet = z.object({
 });
 export type PromptSet = z.infer<typeof PromptSet>;
 
+export const Framework = z.enum([
+  "vite-react",
+  "next",
+  "tanstack-start",
+  "astro",
+  "unknown",
+]);
+export type Framework = z.infer<typeof Framework>;
+
 export const RouteInfo = z.object({
   path: z.string(),
   filePath: z.string(),
-  framework: z.enum(["vite-react", "next", "tanstack-start", "unknown"]),
+  framework: Framework,
   isCSR: z.boolean(),
 });
 export type RouteInfo = z.infer<typeof RouteInfo>;
@@ -143,10 +152,13 @@ export type RouteInfo = z.infer<typeof RouteInfo>;
 export const Inventory = z.object({
   repoUrl: z.string(),
   cloneDir: z.string(),
-  framework: z.enum(["vite-react", "next", "tanstack-start", "unknown"]),
+  defaultBranch: z.string(),
+  inferredUrl: z.string().nullable(),
+  framework: Framework,
   isLovable: z.boolean(),
-  routes: z.array(RouteInfo),
   packageJson: z.record(z.unknown()),
+  sourceFiles: z.array(z.string()),
+  routes: z.array(RouteInfo),
 });
 export type Inventory = z.infer<typeof Inventory>;
 
