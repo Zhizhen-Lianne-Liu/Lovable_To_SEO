@@ -71,29 +71,54 @@ export const DiscoverResult = z.object({
 });
 export type DiscoverResult = z.infer<typeof DiscoverResult>;
 
+export const Intent = z
+  .enum(["informational", "navigational", "commercial", "transactional"])
+  .nullable();
+export type Intent = z.infer<typeof Intent>;
+
+export const RankedKeyword = z.object({
+  keyword: z.string(),
+  search_volume: z.number().nullable(),
+  cpc: z.number().nullable(),
+  keyword_difficulty: z.number().nullable(),
+  intent: Intent,
+  serp_position: z.number(),
+  serp_url: z.string(),
+});
+export type RankedKeyword = z.infer<typeof RankedKeyword>;
+
 export const AggregatedKeyword = z.object({
   keyword: z.string(),
-  total_volume: z.number().nullable(),
+  intent: Intent,
+  total_volume: z.number(),
   avg_difficulty: z.number().nullable(),
   ranking_competitors: z.array(z.string()),
-  best_position: z.number().nullable(),
+  best_position: z.number(),
   count: z.number().int().nonnegative(),
 });
 export type AggregatedKeyword = z.infer<typeof AggregatedKeyword>;
 
 export const KeywordResult = z.object({
+  jobId: z.string(),
+  competitors: z.array(z.string()),
+  locationCode: z.number(),
+  languageCode: z.string(),
+  keywordsByCompetitor: z.record(z.array(RankedKeyword)),
   consensus: z.array(AggregatedKeyword),
   outliers: z.array(AggregatedKeyword),
-  fetched_at: z.string(),
+  cached: z.boolean(),
+  fetchedAt: z.string(),
+  costUsd: z.number(),
 });
 export type KeywordResult = z.infer<typeof KeywordResult>;
 
 export const GeneratedPrompt = z.object({
+  id: z.string(),
   query: z.string(),
   bucket: z.enum(["consideration", "awareness", "brand-eval"]),
-  frame: z.string(),
+  source_keyword: z.string().nullable(),
+  source_competitors: z.array(z.string()),
   hypothesis: z.string(),
-  source_keyword: z.string().optional(),
 });
 export type GeneratedPrompt = z.infer<typeof GeneratedPrompt>;
 
