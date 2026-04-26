@@ -51,8 +51,9 @@ export function Hero() {
             </button>
           </div>
           <p className="mt-3 font-mono text-xs text-ink/55">
-            ~10 seconds. No signup. Demo currently shows real findings for{" "}
-            <code className="text-ink">flowmetricsorg.lovable.app</code>.
+            <code className="text-ink">flowmetricsorg.lovable.app</code> → instant baked findings.
+            <br />
+            Any other domain → real pipeline run (~3-5 min, ~$0.30 in API credits).
           </p>
           {error && (
             <p className="mt-3 font-mono text-xs text-red-600">

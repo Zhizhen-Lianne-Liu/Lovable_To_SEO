@@ -151,6 +151,133 @@ program
   });
 
 program
+  .command("scan-domain")
+  .description(
+    "Analysis-only run: profile + discover + keywords + prompts + Peec push + " +
+      "snapshot + strategy. Skips clone/audit/prerender/apply/ship. Use when you " +
+      "have a domain but no GitHub repo (or for the landing demo's API).",
+  )
+  .requiredOption("-d, --domain <domain>", "Live domain to profile (e.g. example.com)")
+  .option(
+    "--limit",
+    "Reduced fan-out (5 final competitors / 10 keywords / 5 topK / 2 ppk). Halves cost + time.",
+  )
+  .option("--wait-peec <seconds>", "Sleep after Peec push before snapshot", "0")
+  .action(async (opts: { domain: string; limit?: boolean; waitPeec?: string }) => {
+    env();
+    const isLimit = !!opts.limit;
+    const limits = isLimit
+      ? { finalCompetitors: 5, keywordLimit: 10, candidatePool: 20, topKeywords: 5, promptsPerKeyword: 2 }
+      : { finalCompetitors: 10, keywordLimit: 30, candidatePool: 60, topKeywords: 18, promptsPerKeyword: 4 };
+
+    const ctx: RunContext = {
+      jobId: randomUUID(),
+      outDir: resolve(process.cwd(), "runs", new Date().toISOString().slice(0, 10) + "-scan-" + randomUUID().slice(0, 8)),
+      repoUrl: `(domain-only) ${opts.domain}`,
+      startedAt: new Date().toISOString(),
+    };
+    await mkdir(ctx.outDir, { recursive: true });
+    console.log(`[lts] scan-domain ${opts.domain} → ${ctx.outDir}${isLimit ? "  [--limit mode]" : ""}`);
+
+    const profileResult = await profile({ ctx, domain: opts.domain });
+    await write(ctx, "profile.json", profileResult);
+
+    const discoverResult = await discover({ ctx, domain: opts.domain, profile: profileResult });
+    discoverResult.final = discoverResult.final.slice(0, limits.finalCompetitors);
+    await write(ctx, "discover.json", discoverResult);
+
+    const keywordResult = await keywords({
+      ctx,
+      competitors: discoverResult.final.map((c) => c.domain),
+      opts: { keywordLimit: limits.keywordLimit },
+    });
+    await write(ctx, "keywords.json", keywordResult);
+
+    const promptSet = await prompts({
+      ctx,
+      keywords: keywordResult,
+      profile: profileResult,
+      opts: {
+        candidatePool: limits.candidatePool,
+        topKeywords: limits.topKeywords,
+        promptsPerKeyword: limits.promptsPerKeyword,
+      },
+    });
+    await write(ctx, "prompts.json", promptSet);
+
+    const peecPushResult = await peecPush({
+      ctx,
+      profile: profileResult,
+      competitors: discoverResult.final,
+      prompts: promptSet,
+    });
+    await write(ctx, "peec-push.json", peecPushResult);
+
+    const waitSec = Number(opts.waitPeec ?? 0);
+    if (waitSec > 0) {
+      console.log(`[peec] waiting ${waitSec}s for scheduler before snapshot…`);
+      await new Promise((r) => setTimeout(r, waitSec * 1000));
+    }
+
+    const snapshot = await peecSnapshot({ ctx });
+    await write(ctx, "peec-snapshot.json", snapshot);
+
+    const contextMd = await contextFile({
+      ctx,
+      profile: profileResult,
+      discover: discoverResult,
+      snapshot,
+    });
+    await writeFile(resolve(ctx.outDir, "product-marketing-context.md"), contextMd, "utf8");
+
+    // Compose ScanResult shape (matches apps/landing's scan-api.ts).
+    const ownSov = snapshot.scorecard.own?.share_of_voice;
+    const ownVis = snapshot.scorecard.own?.visibility;
+    const competitorsSov = snapshot.scorecard.competitors
+      .filter((c) => (c.share_of_voice ?? 0) > 0)
+      .slice(0, 5)
+      .map((c) => ({ name: c.brand_name, pct: Math.round((c.share_of_voice ?? 0) * 100) }));
+    const ownEntry = {
+      name: profileResult.name,
+      pct: Math.round((ownSov ?? 0) * 100),
+    };
+    const scanResult = {
+      domain: opts.domain,
+      framework: undefined,
+      isLovable: opts.domain.endsWith(".lovable.app") ? true : undefined,
+      diagnosis: {
+        indexable_pct: 0,
+        llm_share_of_voice_pct: Math.round((ownSov ?? 0) * 100),
+        schema_blocks_missing: 5,
+        schema_blocks_total: 5,
+        audit_errors: 0,
+        audit_warnings: 0,
+      },
+      competitors: discoverResult.final.map((c) => ({
+        name: c.canonical_name || c.name,
+        domain: c.domain,
+      })),
+      share_of_voice: [...competitorsSov, ownEntry],
+      fanout_queries: snapshot.fanout_queries.slice(0, 10).map((q) => q.query),
+      diff: undefined,
+      files_changed: undefined,
+      pr: undefined,
+      _meta: {
+        coverage_pct: snapshot.meta.coverage.pct,
+        own_visibility: ownVis,
+        prompts_pushed: promptSet.prompts.length,
+        outDir: ctx.outDir,
+      },
+    };
+    const scanResultPath = resolve(ctx.outDir, "scan-result.json");
+    await writeFile(scanResultPath, JSON.stringify(scanResult, null, 2), "utf8");
+
+    console.log(`[lts] scan-domain done`);
+    // Last line consumed by api subprocess wrapper:
+    console.log(`SCAN_RESULT_PATH=${scanResultPath}`);
+  });
+
+program
   .command("snapshot")
   .description(
     "Pull a fresh Peec snapshot for an existing project (no LLM, no GitHub). " +
