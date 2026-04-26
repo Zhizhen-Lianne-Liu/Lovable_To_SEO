@@ -8,9 +8,11 @@ import {
   shouldOverwriteRobots,
   shouldOverwriteSitemap,
 } from "../lovable/files.js";
+import { generateTanstackPages } from "../lovable/generate-pages-tanstack.js";
 import { injectMetaIntoIndexHtml } from "../lovable/inject-meta.js";
 import { injectTanstack } from "../lovable/inject-tanstack.js";
-import { type Inventory, type RunContext } from "../types/index.js";
+import { type Inventory, type Profile, type RunContext } from "../types/index.js";
+import type { PeecSnapshot } from "./09-peec-snapshot.js";
 import type { StrategyResult } from "./11-strategy.js";
 
 const exec = promisify(execFile);
@@ -58,6 +60,8 @@ export async function apply(args: {
   ctx: RunContext;
   inventory: Inventory;
   strategy: StrategyResult;
+  profile?: Profile;
+  snapshot?: PeecSnapshot;
 }): Promise<ApplyResult> {
   const { inventory, strategy } = args;
   const cloneDir = inventory.cloneDir;
@@ -149,6 +153,48 @@ export async function apply(args: {
     }
   } else {
     skipped.push({ file: "public/sitemap.xml", reason: "exists with bespoke content (no marker)" });
+  }
+
+  // Generate route files for strategy.newPages — TanStack only in v1.
+  // Each generated page lives under src/routes/<path>.tsx with full meta +
+  // JSON-LD (FAQPage + Article or Comparison) + brand-voiced content.
+  if (
+    inventory.framework === "tanstack-start" &&
+    strategy.newPages.length > 0 &&
+    args.profile
+  ) {
+    console.log(`[apply] generating ${strategy.newPages.length} new route file(s)…`);
+    try {
+      const fanout = (args.snapshot?.fanout_queries ?? []).map((q) => q.query);
+      const pages = await generateTanstackPages({
+        cloneDir,
+        baseUrl: sitemapBase,
+        profile: args.profile,
+        newPages: strategy.newPages,
+        fanoutQueries: fanout,
+      });
+      newFiles.push(...pages.newFiles);
+      changedFiles.push(...pages.changedFiles);
+      for (const s of pages.skipped) skipped.push(s);
+      for (const g of pages.generated) {
+        console.log(
+          `        + ${g.filePath} (${g.pageType}, route=${g.route})`,
+        );
+      }
+    } catch (e) {
+      skipped.push({
+        file: "(new pages)",
+        reason: `page generation failed: ${(e as Error).message.slice(0, 200)}`,
+      });
+    }
+  } else if (strategy.newPages.length > 0) {
+    skipped.push({
+      file: "(new pages)",
+      reason:
+        `${strategy.newPages.length} new pages proposed by STRATEGY but page generation ` +
+        `is currently TanStack-only (framework="${inventory.framework}"). Sitemap entries written; ` +
+        `the founder can hand-build the routes from strategy.json.`,
+    });
   }
 
   // git diff for visibility (best-effort — the cloned repo always has git)

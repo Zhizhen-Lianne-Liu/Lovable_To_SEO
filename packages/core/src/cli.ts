@@ -124,7 +124,13 @@ program
     const strategyResult = await strategy({ ctx, inventory, audit: auditResult, contextMd });
     await write(ctx, "strategy.json", strategyResult);
 
-    const applyResult = await apply({ ctx, inventory, strategy: strategyResult });
+    const applyResult = await apply({
+      ctx,
+      inventory,
+      strategy: strategyResult,
+      profile: profileResult,
+      snapshot,
+    });
     await write(ctx, "apply.json", applyResult);
 
     // Generate the report BEFORE ship so we can use its content as the PR body.
