@@ -23,7 +23,8 @@ for (const file of [".env", ".env.local"]) {
 }
 
 const Schema = z.object({
-  ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY required"),
+  ANTHROPIC_API_KEY: z.string().optional(),   // optional when GEMINI_API_KEY is set
+  GEMINI_API_KEY: z.string().optional(),
   TAVILY_API_KEY: z.string().min(1, "TAVILY_API_KEY required"),
   PEEC_API_KEY: z.string().min(1, "PEEC_API_KEY required"),
   PEEC_API_URL: z.string().url().default("https://api.peec.ai/customer/v1"),
@@ -63,6 +64,9 @@ export function env(): Env {
     );
   }
   cached = parsed.data;
+  if (!cached.ANTHROPIC_API_KEY && !cached.GEMINI_API_KEY) {
+    throw new Error("At least one of ANTHROPIC_API_KEY or GEMINI_API_KEY must be set.");
+  }
   return cached;
 }
 

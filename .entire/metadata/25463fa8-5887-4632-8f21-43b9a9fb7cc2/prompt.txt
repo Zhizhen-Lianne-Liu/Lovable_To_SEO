@@ -1,0 +1,13 @@
+is entire enabled?
+
+---
+
+will entire only be incorporated from now on?
+
+---
+
+will it be enabled for other users?
+
+---
+
+can you help me backfill some entire entries? is that possible? would it show up in entire? just using commit messages
