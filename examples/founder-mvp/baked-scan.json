@@ -1,42 +1,45 @@
 {
-  "domain": "forgent.ai",
-  "framework": "vite-react",
+  "_source": "Real run on https://github.com/comodoc/flowmetrics-landing-page (April 2026), pushed to Peec project test3 (or_7718dbbc-...). Snapshot captured ~1h after push at 100% coverage.",
+  "domain": "flowmetricsorg.lovable.app",
+  "framework": "tanstack-start",
   "isLovable": true,
   "diagnosis": {
     "indexable_pct": 0,
-    "llm_share_of_voice_pct": 5,
+    "llm_share_of_voice_pct": 0,
     "schema_blocks_missing": 5,
     "schema_blocks_total": 5,
-    "audit_errors": 3,
-    "audit_warnings": 7
+    "audit_errors": 0,
+    "audit_warnings": 2
   },
   "competitors": [
-    { "name": "Tendium", "domain": "tendium.ai" },
-    { "name": "AutoRFP.ai", "domain": "autorfp.ai" },
-    { "name": "GovDash", "domain": "govdash.com" },
-    { "name": "Procurement Sciences", "domain": "procurementsciences.com" },
-    { "name": "Altura", "domain": "altura.io" }
+    { "name": "HubSpot", "domain": "hubspot.com" },
+    { "name": "Klipfolio", "domain": "klipfolio.com" },
+    { "name": "Databox", "domain": "databox.com" },
+    { "name": "Cyfe", "domain": "cyfe.com" },
+    { "name": "Dreamdata", "domain": "dreamdata.io" }
   ],
   "share_of_voice": [
-    { "name": "Tendium", "pct": 38 },
-    { "name": "AutoRFP.ai", "pct": 24 },
-    { "name": "GovDash", "pct": 17 },
-    { "name": "Procurement Sciences", "pct": 11 },
-    { "name": "Altura", "pct": 5 },
-    { "name": "Forgent AI", "pct": 5 }
+    { "name": "HubSpot", "pct": 69 },
+    { "name": "Klipfolio", "pct": 28 },
+    { "name": "Databox", "pct": 3 },
+    { "name": "Cyfe", "pct": 0 },
+    { "name": "Dreamdata", "pct": 0 },
+    { "name": "FlowMetrics", "pct": 0 }
   ],
   "fanout_queries": [
-    "AI for public procurement bidding",
-    "automate RFP response with AI",
-    "best tender automation software",
-    "AI bid manager for B2G sales",
-    "compliance-checked proposal drafting"
+    "KPIs definition",
+    "examples of KPIs in business",
+    "What are performance indicators in marketing?",
+    "performance indicators in marketing",
+    "key marketing KPIs examples and definitions",
+    "marketing performance metrics vs KPIs",
+    "common marketing performance indicators 2025 2026"
   ],
-  "diff": "diff --git a/index.html b/index.html\n--- a/index.html\n+++ b/index.html\n@@ -1,7 +1,38 @@\n <!doctype html>\n <html lang=\"en\">\n   <head>\n     <meta charset=\"UTF-8\" />\n     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n-    <title>forgent.ai</title>\n+    <!-- lovabletoseo:meta START -->\n+    <title>Forgent AI · Win public-sector tenders with AI agents</title>\n+    <meta name=\"description\" content=\"Domain-specific AI agents that find, draft, and submit winning proposals for public-sector contracts. Built for bid managers — automate 80% of busywork, lift bid capacity 5x.\" />\n+    <link rel=\"canonical\" href=\"https://forgent.ai/\" />\n+    <meta property=\"og:title\" content=\"Forgent AI · Win public-sector tenders with AI agents\" />\n+    <meta property=\"og:description\" content=\"Domain-specific AI agents that find, draft, and submit winning proposals for public-sector contracts.\" />\n+    <meta property=\"og:url\" content=\"https://forgent.ai/\" />\n+    <meta name=\"twitter:card\" content=\"summary_large_image\" />\n+    <meta name=\"twitter:title\" content=\"Forgent AI · Win public-sector tenders with AI agents\" />\n+    <meta name=\"twitter:description\" content=\"Domain-specific AI agents that find, draft, and submit winning proposals for public-sector contracts.\" />\n+    <script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"Organization\",\"name\":\"Forgent AI\",\"url\":\"https://forgent.ai\",\"sameAs\":[\"https://www.linkedin.com/company/forgent-ai\",\"https://www.crunchbase.com/organization/forgent-ai\"]}</script>\n+    <script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"WebSite\",\"name\":\"Forgent AI\",\"url\":\"https://forgent.ai\"}</script>\n+    <script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"Product\",\"name\":\"Forgent AI\",\"description\":\"AI agents for finding, winning, and delivering public-sector contracts.\",\"brand\":{\"@type\":\"Brand\",\"name\":\"Forgent AI\"}}</script>\n+    <!-- lovabletoseo:meta END -->\n     <link rel=\"icon\" type=\"image/svg+xml\" href=\"/vite.svg\" />\n   </head>\n   <body>\n     <div id=\"root\"></div>\n     <script type=\"module\" src=\"/src/main.tsx\"></script>\n   </body>\n </html>",
-  "files_changed": ["index.html", "public/robots.txt", "public/sitemap.xml"],
+  "diff": "diff --git a/public/robots.txt b/public/robots.txt\nnew file mode 100644\nindex 0000000..af6b50d\n--- /dev/null\n+++ b/public/robots.txt\n@@ -0,0 +1,5 @@\n+# lovabletoseo:managed\n+User-agent: *\n+Allow: /\n+\n+Sitemap: https://flowmetrics-landing-page.lovable.app/sitemap.xml\ndiff --git a/public/sitemap.xml b/public/sitemap.xml\nnew file mode 100644\nindex 0000000..64092d5\n--- /dev/null\n+++ b/public/sitemap.xml\n@@ -0,0 +1,10 @@\n+<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n+<!-- lovabletoseo:managed -->\n+<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n+  <url>\n+    <loc>https://flowmetrics-landing-page.lovable.app/</loc>\n+    <lastmod>2026-04-26</lastmod>\n+    <changefreq>weekly</changefreq>\n+    <priority>1</priority>\n+  </url>\n+</urlset>",
+  "files_changed": ["public/robots.txt", "public/sitemap.xml"],
   "pr": {
-    "url": "https://github.com/forgent-ai/forgent/pull/42",
-    "branch": "lovabletoseo/abc12345",
-    "commit": "f7e3a2b"
+    "url": "https://github.com/comodoc/flowmetrics-landing-page/pull/1",
+    "branch": "lovabletoseo/9e97897a",
+    "commit": "70f9971"
   }
 }
