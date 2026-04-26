@@ -5,7 +5,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b hairline bg-paper/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link to="/" className="font-display text-xl tracking-tight">
-          lovabletoseo<span className="text-mint">.</span>
+          instantSEO&amp;GEO<span className="text-mint">.</span>
         </Link>
         <nav className="flex items-center gap-7">
           <a href="#pipeline" className="hidden text-sm text-ink/80 hover:text-ink sm:inline">
@@ -17,9 +17,6 @@ export function Header() {
           <a href="#faq" className="hidden text-sm text-ink/80 hover:text-ink sm:inline">
             FAQ
           </a>
-          <button className="border hairline px-3 py-1.5 font-mono text-xs hover:bg-ink hover:text-paper transition-colors">
-            Sign in
-          </button>
         </nav>
       </div>
     </header>

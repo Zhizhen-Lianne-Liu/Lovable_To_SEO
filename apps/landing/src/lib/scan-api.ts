@@ -29,7 +29,16 @@ export async function scan(url: string): Promise<ScanResult> {
     body: JSON.stringify({ url }),
   });
   if (!res.ok) {
-    throw new Error(`/api/scan returned ${res.status}`);
+    // The demo API returns a structured `{ error, message }` body for known
+    // refusals (e.g. URL_NOT_IN_DEMO). Surface the message verbatim so the
+    // user sees something actionable, not "HTTP 404".
+    let body: { error?: string; message?: string } | null = null;
+    try {
+      body = (await res.json()) as { error?: string; message?: string };
+    } catch {
+      /* not JSON */
+    }
+    throw new Error(body?.message ?? `/api/scan returned ${res.status}`);
   }
   return (await res.json()) as ScanResult;
 }

@@ -1,7 +1,13 @@
 # lovabletoseo landing
 
 The marketing landing page for **lovabletoseo** — vendored from
-[elnumae/toseo](https://github.com/elnumae/toseo) at commit `9a2fc9a`.
+[elnumae/toseo](https://github.com/elnumae/toseo).
+
+**Pulled visual changes through commit `3968b7f`:** rebranded logo to
+`instantSEO&GEO`, generic hero copy ("Is your website visible to AI &
+Google?"), removed the no-op "Sign in" button. Wiring (useScan + Hero
+submits to /api/scan + Diagnosis renders real numbers + PrDiff renders
+the live diff) is layered on top.
 
 ## Stack
 

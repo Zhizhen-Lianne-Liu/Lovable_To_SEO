@@ -22,11 +22,42 @@ app.get("/api/health", (c) => c.json({ ok: true, demoMode: DEMO_MODE }));
 
 type ScanRequestBody = { url?: string };
 
+// The single URL the baked demo has real findings for. Anything else returns a
+// friendly "demo doesn't cover this URL yet" so the UI doesn't pretend to have
+// run the pipeline against a domain it didn't.
+const SUPPORTED_URLS = ["flowmetricsorg.lovable.app", "flowmetrics-landing-page.lovable.app"];
+
+function normalizeForMatch(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/+$/, "");
+}
+
+function isSupported(url: string): boolean {
+  const norm = normalizeForMatch(url);
+  return SUPPORTED_URLS.some((u) => norm === u || norm.startsWith(u + "/"));
+}
+
 app.post("/api/scan", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as ScanRequestBody;
   const url = (body.url ?? "").trim();
 
   if (DEMO_MODE === "baked") {
+    if (!isSupported(url)) {
+      return c.json(
+        {
+          error: "URL_NOT_IN_DEMO",
+          message:
+            `The demo currently shows real findings for https://flowmetricsorg.lovable.app — ` +
+            `the live run that produced PR #2 on the comodoc/flowmetrics-landing-page repo. ` +
+            `Try that URL to see the actual pipeline output. Other domains require running ` +
+            `the CLI: \`npx tsx packages/core/src/cli.ts run --repo <url>\`.`,
+        },
+        404,
+      );
+    }
     let baked: unknown;
     try {
       baked = JSON.parse(await readFile(BAKED_PATH, "utf8"));
