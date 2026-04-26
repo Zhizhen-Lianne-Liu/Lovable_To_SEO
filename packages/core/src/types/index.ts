@@ -1,18 +1,22 @@
 import { z } from "zod";
 
+// Per the synth system prompt: any scalar field MAY be null when the source
+// material doesn't support it. Arrays default to []. name/domain are the only
+// fields the pipeline truly can't proceed without — everything else is
+// best-effort. Keep this lenient to match the Python contract.
 export const Profile = z.object({
   name: z.string(),
   domain: z.string(),
-  tagline: z.string(),
-  occupation: z.string(),
-  industry: z.string(),
-  category_for_search: z.string(),
+  tagline: z.string().nullable(),
+  occupation: z.string().nullable(),
+  industry: z.string().nullable(),
+  category_for_search: z.string().nullable(),
   target_markets: z.array(z.string()),
-  audience: z.string(),
-  audience_sophistication: z.string(),
+  audience: z.string().nullable(),
+  audience_sophistication: z.string().nullable(),
   products_and_services: z.array(z.string()),
-  pricing_tier: z.string(),
-  scale_tier: z.string(),
+  pricing_tier: z.string().nullable(),
+  scale_tier: z.string().nullable(),
   brand_presentation: z.array(z.string()),
   key_differentiators: z.array(z.string()),
   competitor_signals: z.array(z.string()),
