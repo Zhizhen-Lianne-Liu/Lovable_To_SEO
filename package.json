@@ -13,6 +13,7 @@
     "core:dev": "npm --workspace @lovabletoseo/core run dev",
     "core:build": "npm --workspace @lovabletoseo/core run build",
     "core:typecheck": "npm --workspace @lovabletoseo/core run typecheck",
+    "smoke:enrich": "npm --workspace @lovabletoseo/core run smoke:enrich --",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },

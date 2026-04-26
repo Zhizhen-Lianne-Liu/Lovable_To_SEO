@@ -11,7 +11,9 @@
     "dev": "tsx src/cli.ts",
     "build": "tsc",
     "start": "node dist/cli.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke:enrich": "tsx src/scripts/smoke-enrich.ts",
+    "validate:smoke": "tsx src/scripts/validate-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
