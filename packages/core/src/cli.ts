@@ -39,7 +39,12 @@ program
       "keywords/competitor to 10, top-keywords to 5, prompts/keyword to 2.",
   )
   .option("--no-prerender", "Skip the prerender stage (saves ~$0.05 + ~30s; APPLY still runs)")
-  .action(async (opts: { repo: string; domain?: string; dryRun?: boolean; limit?: boolean; prerender: boolean }) => {
+  .option(
+    "--wait-peec <seconds>",
+    "Sleep this many seconds after Peec push before snapshot, so the scheduler has time to run the prompts. Default 90. Pass 0 to skip and snapshot whatever's there now.",
+    "90",
+  )
+  .action(async (opts: { repo: string; domain?: string; dryRun?: boolean; limit?: boolean; prerender: boolean; waitPeec?: string }) => {
     env(); // fail-fast on missing env
 
     const isLimit = !!opts.limit;
@@ -100,6 +105,14 @@ program
     if (!opts.dryRun) {
       const peecPushResult = await peecPush({ ctx, profile: profileResult, competitors: discoverResult.final, prompts: promptSet });
       await write(ctx, "peec-push.json", peecPushResult);
+      // Peec is async/schedule-driven — chats start arriving within minutes
+      // but full coverage takes ~24h. The default 90s wait captures partial
+      // visibility. Use --wait-peec 0 to skip, --wait-peec 600 for more.
+      const waitSec = Number(opts.waitPeec ?? 90);
+      if (waitSec > 0) {
+        console.log(`[peec] waiting ${waitSec}s for Peec scheduler to start running prompts (use --wait-peec 0 to skip; re-run \`lts snapshot\` later for fuller coverage)…`);
+        await new Promise((r) => setTimeout(r, waitSec * 1000));
+      }
     }
 
     const snapshot = await peecSnapshot({ ctx });
@@ -135,6 +148,84 @@ program
     await writeFile(resolve(ctx.outDir, "report.md"), finalReport, "utf8");
 
     console.log(`[lts] done → ${ctx.outDir}/report.md`);
+  });
+
+program
+  .command("snapshot")
+  .description(
+    "Pull a fresh Peec snapshot for an existing project (no LLM, no GitHub). " +
+      "Use this hours/days after `run` to capture coverage as Peec's scheduler fills in.",
+  )
+  .option("-p, --project-id <id>", "Peec project ID (defaults to PEEC_PROJECT_ID env)")
+  .option("-d, --days <n>", "Date-window size in days", "7")
+  .action(async (opts: { projectId?: string; days?: string }) => {
+    env(); // fail-fast on missing env
+    const projectId = opts.projectId ?? process.env.PEEC_PROJECT_ID;
+    if (!projectId) {
+      console.error("error: --project-id <id> (or PEEC_PROJECT_ID env) is required");
+      process.exit(1);
+    }
+    const days = Math.max(1, Number(opts.days ?? 7));
+
+    const ctx: RunContext = {
+      jobId: randomUUID(),
+      outDir: resolve(process.cwd(), "runs", new Date().toISOString().slice(0, 10) + "-snapshot-" + randomUUID().slice(0, 8)),
+      repoUrl: "(snapshot-only)",
+      startedAt: new Date().toISOString(),
+    };
+    await mkdir(ctx.outDir, { recursive: true });
+    console.log(`[lts] snapshot project=${projectId} days=${days} → ${ctx.outDir}`);
+
+    const snap = await peecSnapshot({ ctx, projectId, days });
+    await write(ctx, "peec-snapshot.json", snap);
+
+    // Brief, snapshot-shaped report (no inventory/profile/etc).
+    const sc = snap.scorecard;
+    const wins = snap.prompt_breakdown.filter((p) => p.winning_flag);
+    const losses = snap.prompt_breakdown.filter((p) => p.weakness_flag);
+    const lines = [
+      `# lovabletoseo snapshot — ${snap.meta.own_brand?.name ?? "(unknown)"}`,
+      "",
+      `**Project:** ${projectId}`,
+      `**Window:** ${snap.meta.date_range.start} → ${snap.meta.date_range.end} (${days} days)`,
+      `**Coverage:** ${snap.meta.coverage.actual} / ${snap.meta.coverage.expected} chats (${(snap.meta.coverage.pct * 100).toFixed(0)}%)`,
+      "",
+      "## Scorecard",
+      "",
+      `- **Own visibility:** ${sc.own?.visibility != null ? `${(sc.own.visibility * 100).toFixed(1)}%` : "—"}`,
+      `- **Share of voice:** ${sc.own?.share_of_voice != null ? `${(sc.own.share_of_voice * 100).toFixed(1)}%` : "—"}`,
+      `- **Sentiment:** ${sc.own?.sentiment ?? "—"}`,
+      `- **Rank:** ${sc.our_rank} of ${sc.total_brands_ranked}`,
+      "",
+      "## Competitors (by visibility)",
+      "",
+      sc.competitors.length
+        ? sc.competitors.slice(0, 10).map((c) => `- **${c.brand_name}** — vis=${c.visibility != null ? (c.visibility * 100).toFixed(1) + "%" : "—"}, sov=${c.share_of_voice != null ? (c.share_of_voice * 100).toFixed(1) + "%" : "—"}, mentions=${c.mention_count ?? 0}`).join("\n")
+        : "_(none ranked yet)_",
+      "",
+      "## Prompts where we WIN (own ≥ 70%, ≥ top competitor)",
+      "",
+      wins.length ? wins.slice(0, 8).map((w) => `- **${w.prompt_text || w.prompt_id}** — own=${(w.own_visibility * 100).toFixed(0)}%`).join("\n") : "_(none yet)_",
+      "",
+      "## Prompts where we LOSE (own < 30%)",
+      "",
+      losses.length ? losses.slice(0, 12).map((l) => `- **${l.prompt_text || l.prompt_id}** — own=${(l.own_visibility * 100).toFixed(0)}%, top=${(l.top_competitor_visibility * 100).toFixed(0)}% (${l.top_competitor || "—"})`).join("\n") : "_(no clear losses — could mean the snapshot is still warming up)_",
+      "",
+      "## Top gap URLs the AIs cite (instead of us)",
+      "",
+      snap.gap_targets.urls.length
+        ? snap.gap_targets.urls.slice(0, 10).map((u) => `- ${u.url} — cited ${u.citation_count ?? 0}x by ${u.competitors_cited.slice(0, 3).join(", ") || "—"}`).join("\n")
+        : "_(none)_",
+      "",
+      "## Fanout queries the AIs ran (SEO/GEO targeting gold)",
+      "",
+      snap.fanout_queries.length
+        ? snap.fanout_queries.slice(0, 12).map((q) => `- \`${q.query}\` (used ${q.count}x)`).join("\n")
+        : "_(none yet — chats may still be processing)_",
+      "",
+    ];
+    await writeFile(resolve(ctx.outDir, "report.md"), lines.join("\n"), "utf8");
+    console.log(`[lts] snapshot done → ${ctx.outDir}/report.md`);
   });
 
 async function write(ctx: RunContext, filename: string, data: unknown): Promise<void> {
