@@ -9,6 +9,7 @@ import {
   shouldOverwriteSitemap,
 } from "../lovable/files.js";
 import { injectMetaIntoIndexHtml } from "../lovable/inject-meta.js";
+import { injectTanstack } from "../lovable/inject-tanstack.js";
 import { type Inventory, type RunContext } from "../types/index.js";
 import type { StrategyResult } from "./11-strategy.js";
 
@@ -64,35 +65,47 @@ export async function apply(args: {
   const newFiles: string[] = [];
   const skipped: Array<{ file: string; reason: string }> = [];
 
-  if (inventory.framework !== "vite-react") {
-    skipped.push({
-      file: "index.html",
-      reason: `framework is "${inventory.framework}", APPLY v1 only handles vite-react. Skipping shell mutation; copy the perRoute output into the framework's <head> or layout component manually.`,
-    });
+  // Frame-aware shell injection. Strategy is "fix it inside their stack" —
+  // every framework gets edited via its own idiom so the result reads as
+  // native code when the founder reopens in Lovable.
+  const home = homeRoute(strategy);
+  if (!home) {
+    skipped.push({ file: "(shell)", reason: "strategy.perRoute is empty — nothing to inject" });
   } else {
-    const home = homeRoute(strategy);
-    const indexPath = join(cloneDir, "index.html");
-    const indexHtml = await readIfExists(indexPath);
-    if (!indexHtml) {
-      skipped.push({ file: "index.html", reason: "not found in repo" });
-    } else if (!home) {
-      skipped.push({ file: "index.html", reason: "strategy.perRoute is empty — nothing to inject" });
-    } else {
-      const canonicalUrl = inventory.inferredUrl ?? `https://${args.inventory.repoUrl}`;
-      const updated = injectMetaIntoIndexHtml(indexHtml, {
-        title: home.title,
-        description: home.description,
-        canonicalUrl,
-        ogTitle: home.title,
-        ogDescription: home.description,
-        ogImage: pickOgImage(strategy, null),
-        twitterCard: "summary_large_image",
-        jsonLd: [...strategy.globalSchema, ...home.schema],
-      });
-      if (updated !== indexHtml) {
-        await writeFile(indexPath, updated, "utf8");
-        changedFiles.push(rel(cloneDir, indexPath));
+    const canonicalUrl = inventory.inferredUrl ?? `https://${args.inventory.repoUrl}`;
+    const injection = {
+      title: home.title,
+      description: home.description,
+      canonicalUrl,
+      ogTitle: home.title,
+      ogDescription: home.description,
+      ogImage: pickOgImage(strategy, null),
+      twitterCard: "summary_large_image" as const,
+      jsonLd: [...strategy.globalSchema, ...home.schema],
+    };
+
+    if (inventory.framework === "vite-react") {
+      const indexPath = join(cloneDir, "index.html");
+      const indexHtml = await readIfExists(indexPath);
+      if (!indexHtml) {
+        skipped.push({ file: "index.html", reason: "not found in repo" });
+      } else {
+        const updated = injectMetaIntoIndexHtml(indexHtml, injection);
+        if (updated !== indexHtml) {
+          await writeFile(indexPath, updated, "utf8");
+          changedFiles.push(rel(cloneDir, indexPath));
+        }
       }
+    } else if (inventory.framework === "tanstack-start") {
+      const ts = await injectTanstack({ cloneDir, injection });
+      changedFiles.push(...ts.changedFiles);
+      newFiles.push(...ts.newFiles);
+      for (const w of ts.warnings) skipped.push({ file: "(tanstack)", reason: w });
+    } else {
+      skipped.push({
+        file: "(shell)",
+        reason: `framework is "${inventory.framework}". APPLY v1 supports vite-react + tanstack-start. Copy strategy.perRoute output into your framework's <head>/metadata location manually.`,
+      });
     }
   }
 
@@ -112,7 +125,8 @@ export async function apply(args: {
     skipped.push({ file: "public/robots.txt", reason: "exists with bespoke content (no marker)" });
   }
 
-  // sitemap.xml
+  // sitemap.xml — only write if content actually differs (else re-runs on
+  // the same day are no-ops; lastmod only changes day-over-day).
   const sitemapPath = join(cloneDir, "public", "sitemap.xml");
   const existingSitemap = await readIfExists(sitemapPath);
   if (shouldOverwriteSitemap(existingSitemap)) {
@@ -121,17 +135,18 @@ export async function apply(args: {
       ...strategy.perRoute.filter((r) => r.route !== "/").map((r) => r.route),
       ...strategy.newPages.map((r) => r.route),
     ];
-    await mkdir(resolve(cloneDir, "public"), { recursive: true });
-    await writeFile(
-      sitemapPath,
-      buildSitemapXml({
-        baseUrl: sitemapBase,
-        routes: allRoutes.map((p) => ({ path: p, changefreq: "weekly", priority: p === "/" ? 1.0 : 0.7 })),
-      }),
-      "utf8",
-    );
-    if (existingSitemap == null) newFiles.push(rel(cloneDir, sitemapPath));
-    else changedFiles.push(rel(cloneDir, sitemapPath));
+    const next = buildSitemapXml({
+      baseUrl: sitemapBase,
+      routes: allRoutes.map((p) => ({ path: p, changefreq: "weekly", priority: p === "/" ? 1.0 : 0.7 })),
+    });
+    if (existingSitemap == null) {
+      await mkdir(resolve(cloneDir, "public"), { recursive: true });
+      await writeFile(sitemapPath, next, "utf8");
+      newFiles.push(rel(cloneDir, sitemapPath));
+    } else if (existingSitemap !== next) {
+      await writeFile(sitemapPath, next, "utf8");
+      changedFiles.push(rel(cloneDir, sitemapPath));
+    }
   } else {
     skipped.push({ file: "public/sitemap.xml", reason: "exists with bespoke content (no marker)" });
   }
