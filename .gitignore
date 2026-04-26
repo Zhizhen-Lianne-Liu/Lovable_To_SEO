@@ -11,6 +11,7 @@ out/
 .claude/
 .vscode/
 .idea/
+.entire/
 
 # apps/landing primarily uses Bun (bun.lockb is committed); the npm
 # package-lock.json only appears if a contributor runs `npm install`
